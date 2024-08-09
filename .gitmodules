@@ -1,0 +1,3 @@
+[submodule "rl4co"]
+	path = rl4co
+	url = https://github.com/ai4co/rl4co
