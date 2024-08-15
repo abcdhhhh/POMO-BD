@@ -23,9 +23,35 @@ class BiasCache(PrecomputedCache):
 class ICAMDecoder(AttentionModelDecoder):
     def __init__(
         self,
-        **kwargs,
+        embed_dim: int = 128,
+        num_heads: int = 8,
+        env_name: str = "tsp",
+        context_embedding: nn.Module = None,
+        dynamic_embedding: nn.Module = None,
+        mask_inner: bool = True,
+        out_bias_pointer_attn: bool = False,
+        linear_bias: bool = False,
+        use_graph_context: bool = True,
+        check_nan: bool = True,
+        sdpa_fn: callable = None,
+        pointer: nn.Module = None,
+        moe_kwargs: dict = None,
     ):
-        super().__init__(**kwargs)
+        super().__init__(
+            embed_dim=embed_dim,
+            num_heads=num_heads,
+            env_name=env_name,
+            context_embedding=context_embedding,
+            dynamic_embedding=dynamic_embedding,
+            mask_inner=mask_inner,
+            out_bias_pointer_attn=out_bias_pointer_attn,
+            linear_bias=linear_bias,
+            use_graph_context=use_graph_context,
+            check_nan=check_nan,
+            sdpa_fn=sdpa_fn,
+            pointer=pointer,
+            moe_kwargs=moe_kwargs,
+        )
         self.alpha = nn.Parameter(torch.tensor(1.))
 
     def pre_decoder_hook(
@@ -110,9 +136,15 @@ class ICAMDecoder(AttentionModelDecoder):
         b = cached.bias.size(0)
         current_node = td["current_node"]
         if num_starts > 1:
+            if len(current_node.shape) == 3:
+                assert current_node.size(-1) == 1
+                current_node = current_node[..., 0]
             current_node = current_node[..., None].expand(*current_node.size(), n)
             bias = torch.gather(cached.bias, dim=-2, index=current_node)
         else:
+            if len(current_node.shape) == 2:
+                assert current_node.size(-1) == 1
+                current_node = current_node[..., 0]
             bias = cached.bias[torch.arange(b), current_node]
         logits = logits - bias
 
