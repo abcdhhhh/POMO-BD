@@ -85,9 +85,6 @@ class ICAM(REINFORCE):
         else:
             self.augment = None
 
-        # Add `_multistart` to decode type for train, val and test in policy
-        for phase in ["train", "val", "test"]:
-            self.set_decode_type_multistart(phase)
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
 
@@ -105,8 +102,9 @@ class ICAM(REINFORCE):
             td = self.augment(td)
 
         # Evaluate policy
+        # Set multisample=True to sample solutions with same start
         out = self.policy(
-            td, self.env, phase=phase, num_starts=n_start, return_actions=True
+            td, self.env, phase=phase, num_starts=n_start, multisample=True, return_actions=True
         )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].

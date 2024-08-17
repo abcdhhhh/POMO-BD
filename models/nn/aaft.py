@@ -7,7 +7,7 @@ from einops import rearrange
 
 class AAFT(nn.Module):
     """ 
-    following ICAM (https://arxiv.org/abs/2405.01906) and AFT-full
+    following ICAM (https://arxiv.org/abs/2405.01906) and AFT-full (https://arxiv.org/abs/2105.14103)
     inputs include a distance matrix
     """
     def __init__(

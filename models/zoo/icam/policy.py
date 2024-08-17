@@ -33,11 +33,15 @@ class ICAMPolicy(AutoregressivePolicy):
             tanh_clipping: float = 50.0,
             mask_logits: bool = True,
             train_decode_type: str = "sampling",
-            val_decode_type: str = "greedy",
-            test_decode_type: str = "greedy",
+            val_decode_type: str = "sampling",
+            test_decode_type: str = "sampling",
             moe_kwargs: dict = {"encoder": None, "decoder": None},
             **kwargs
         ):
+        """
+        Following PolyNet, if first action is not sensitive,
+        val_decode_type can be changed to "multistart_greedy" for better performance.
+        """
 
         if encoder is None:
             encoder = ICAMEncoder(
