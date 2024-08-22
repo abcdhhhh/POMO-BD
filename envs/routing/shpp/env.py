@@ -129,7 +129,8 @@ class SHPPEnv(RL4COEnvBase):
     def _get_reward(self, td, actions) -> TensorDict:
         # Gather locations in order of tour and return distance between them (i.e., -reward)
         locs_ordered = gather_by_index(td["locs"], actions)
-        return -get_tour_length(locs_ordered)
+        # return -get_tour_length(locs_ordered)
+        return -torch.norm(locs_ordered[..., 1:, :] - locs_ordered[..., :-1, :], p=2, dim=-1).sum(-1)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
@@ -180,3 +181,10 @@ class SHPPEnv(RL4COEnvBase):
         )
         self.reward_spec = UnboundedContinuousTensorSpec(shape=(1,))
         self.done_spec = UnboundedDiscreteTensorSpec(shape=(1,), dtype=torch.bool)
+
+    @staticmethod
+    def select_start_nodes(td, num_starts):
+        """Select available start nodes for the environment (e.g. for POMO-based training)"""
+        raise NotImplementedError(
+            "start_node is fixed for SHPP environment!"
+        )

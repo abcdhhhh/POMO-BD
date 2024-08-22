@@ -1,7 +1,7 @@
 # train or val
-mode: train
+mode: val
 env_name: shpp
-num_loc: 50
+num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
@@ -12,7 +12,7 @@ env:
   generator_params:
     num_loc: ${num_loc}
   check_solution: False # optimization
-  data_dir: ./rl4co/data/
+  data_dir: ./data/
   val_file: ${env_name}/${env_name}${num_loc}_val_seed4321.npz
   test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
 
@@ -21,7 +21,7 @@ logger:
   tags: ["icam", "${env_name}"]
   group: "${env_name}${num_loc}"
   save_dir: ${save_dir}
-  name: "icam-${env_name}${num_loc}-${poly.k}${model.policy_kwargs.pointer}${model.policy_kwargs.encoder}"
+  name: "icam-${env_name}${num_loc}-${poly.k}${model.policy_kwargs.pointer}${model.policy_kwargs.encoder}-${model.elite_k}-${model.elite_alpha}"
 
 # polynet_attention
 poly:
@@ -41,16 +41,16 @@ model:
   # During val/test only we apply dihedral transformations
   num_augment: 8
   elite_k: 1
-  elite_alpha: 0.
+  elite_alpha: 1.
   num_starts: 80
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: sampling
-    # set 'multistart_greedy' for symmetric problems, 'sampling' for others
-    val_decode_type: sampling
-    # set 'poly' if use polynet attention, 'null' otherwise
+    # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
+    val_decode_type: greedy
+    # set 'poly' for polynet attention, 'null' for simple attention
     pointer: poly
-    # set 'am' if use am encoder, 'null' otherwise
+    # set 'am' for am encoder, 'null' for icam encoder
     encoder: null
     embed_dim: ${embed_dim}
     tanh_clipping: 50.
@@ -72,7 +72,7 @@ model:
 trainer:
   max_epochs: 100
   precision: 32-true
-  # set 'wandb' if use wandb
-  logger: wandb
+  # set 'wandb' if use wandb, 'null' otherwise
+  logger: null
 
 seed: 1234

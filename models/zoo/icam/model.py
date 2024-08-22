@@ -16,32 +16,6 @@ log = get_pylogger(__name__)
 
 
 class ICAM(REINFORCE):
-    """POMO Model for neural combinatorial optimization based on REINFORCE
-    Based on Kwon et al. (2020) http://arxiv.org/abs/2010.16011.
-
-    Note:
-        If no policy kwargs is passed, we use the Attention Model policy with the following arguments:
-        Differently to the base class:
-        - `num_encoder_layers=6` (instead of 3)
-        - `normalization="instance"` (instead of "batch")
-        - `use_graph_context=False` (instead of True)
-        The latter is due to the fact that the paper does not use the graph context in the policy, which seems to be
-        helpful in overfitting to the training graph size.
-
-    Args:
-        env: TorchRL Environment
-        policy: Policy to use for the algorithm
-        policy_kwargs: Keyword arguments for policy
-        baseline: Baseline to use for the algorithm. Note that POMO only supports shared baseline,
-            so we will throw an error if anything else is passed.
-        num_augment: Number of augmentations (used only for validation and test)
-        augment_fn: Function to use for augmentation, defaulting to dihedral8
-        first_aug_identity: Whether to include the identity augmentation in the first position
-        feats: List of features to augment
-        num_starts: Number of starts for multi-start. If None, use the number of available actions
-        **kwargs: Keyword arguments passed to the superclass
-    """
-
     def __init__(
         self,
         env: RL4COEnvBase,

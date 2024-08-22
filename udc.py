@@ -2,6 +2,7 @@ import os
 import hydra
 from omegaconf import OmegaConf, DictConfig
 
+import torch
 import lightning as L
 from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
@@ -10,48 +11,59 @@ from rl4co.utils.trainer import RL4COTrainer
 from rl4co.envs import get_env
 
 from models.zoo.icam.model import ICAM
+from models.zoo.udc.model import UDC
 
-@hydra.main(config_path="./configs/", config_name="icam.yaml", version_base="1.3")
+@hydra.main(config_path="./configs/", config_name="udc.yaml", version_base="1.3")
 def run(cfg: DictConfig):
     L.seed_everything(cfg.get("seed", 1234))
 
     env_params = cfg.env
-    model_params_dict = OmegaConf.to_container(cfg.model, resolve=True)
-    if env_params.env_name == "shpp":
+    sub_env_params = cfg.sub_env
+    reviser_params_dict = OmegaConf.to_container(cfg.reviser, resolve=True)
+
+    env = get_env(**env_params)
+    
+    if sub_env_params.env_name == "shpp":
         from envs.routing.shpp.env import SHPPEnv
         from models.nn.env_embeddings.init import SHPPInitEmbedding
         from models.nn.env_embeddings.context import SHPPContext
         from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
-        del env_params.env_name
-        env = SHPPEnv(**env_params)
+        sub_env = SHPPEnv(**sub_env_params)
         
-        model_params_dict['policy_kwargs'].update({
+        reviser_params_dict['policy_kwargs'].update({
             "init_embedding": SHPPInitEmbedding(embed_dim=cfg.embed_dim),
             "context_embedding": SHPPContext(embed_dim=cfg.embed_dim),
             "dynamic_embedding": StaticEmbedding(),
         })
     else:
-        env = get_env(**env_params)
+        sub_env = get_env(**sub_env_params)
 
-    if model_params_dict['policy_kwargs']['pointer'] == "poly":
+    if reviser_params_dict['policy_kwargs']['pointer'] == "poly":
         from rl4co.models.nn.attention import PolyNetAttention
-        model_params_dict['policy_kwargs']['pointer'] = PolyNetAttention(
+        reviser_params_dict['policy_kwargs']['pointer'] = PolyNetAttention(
             **cfg.poly, 
             poly_layer_dim=cfg.embed_dim*2
         )
 
-    if model_params_dict['policy_kwargs']['encoder'] == "am":
+    if reviser_params_dict['policy_kwargs']['encoder'] == "am":
         from rl4co.models.zoo.am.encoder import AttentionModelEncoder
-        model_params_dict['policy_kwargs']['encoder'] = AttentionModelEncoder(
+        reviser_params_dict['policy_kwargs']['encoder'] = AttentionModelEncoder(
             embed_dim=cfg.embed_dim,
             num_heads=cfg.num_heads,
-            num_layers=model_params_dict['policy_kwargs']['num_encoder_layers'],
-            normalization=model_params_dict['policy_kwargs']['normalization'],
+            num_layers=reviser_params_dict['policy_kwargs']['num_encoder_layers'],
+            normalization=reviser_params_dict['policy_kwargs']['normalization'],
         )
 
-    model = ICAM(
+    reviser = ICAM(
+        env=sub_env,
+        **reviser_params_dict,
+    )
+
+    model_params = cfg.model
+    model = UDC(
         env=env,
-        **model_params_dict,
+        reviser=reviser,
+        **model_params,
     )
 
     checkpoint_callback = ModelCheckpoint(
@@ -73,10 +85,13 @@ def run(cfg: DictConfig):
         callbacks=[checkpoint_callback],
     )
 
+    if cfg.ckpt_path:
+        ckpt_state_dict = torch.load(cfg.ckpt_path)['state_dict']
+        model.load_state_dict(ckpt_state_dict)
     if cfg.mode == "train":
-        trainer.fit(model, ckpt_path=cfg.ckpt_path)
+        trainer.fit(model)
     elif cfg.mode == "val":
-        trainer.validate(model, ckpt_path=cfg.ckpt_path)
+        trainer.validate(model)
 
 if __name__ == "__main__":
     run()
