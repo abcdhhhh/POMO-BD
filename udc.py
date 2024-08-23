@@ -65,6 +65,10 @@ def run(cfg: DictConfig):
         reviser=reviser,
         **model_params,
     )
+    
+    if cfg.ckpt_path:
+        ckpt_state_dict = torch.load(cfg.ckpt_path)['state_dict']
+        model.load_state_dict(ckpt_state_dict)
 
     checkpoint_callback = ModelCheckpoint(
         monitor="val/max_reward",
@@ -85,9 +89,7 @@ def run(cfg: DictConfig):
         callbacks=[checkpoint_callback],
     )
 
-    if cfg.ckpt_path:
-        ckpt_state_dict = torch.load(cfg.ckpt_path)['state_dict']
-        model.load_state_dict(ckpt_state_dict)
+    
     if cfg.mode == "train":
         trainer.fit(model)
     elif cfg.mode == "val":

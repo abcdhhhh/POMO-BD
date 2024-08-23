@@ -78,7 +78,7 @@ class ICAM(REINFORCE):
         # Evaluate policy
         # Set multisample=True to sample solutions with same start
         out = self.policy(
-            td, self.env, phase=phase, num_starts=n_start, multisample=True, return_actions=True
+            td, env=self.env, phase=phase, num_starts=n_start, multisample=True, return_actions=True
         )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].

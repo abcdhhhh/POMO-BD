@@ -25,14 +25,15 @@ class UDCPolicy(NonAutoregressivePolicy):
         encoder: NonAutoregressiveEncoder = None,
         decoder: NonAutoregressiveDecoder = None,
         env_name: Union[str, RL4COEnvBase] = "tsp",
-        n_samples: int = 50,
-        sub_num_locs: int = 101,
         reviser: nn.Module = None,
+        sub_norm: bool = True,
+        encoder_kwargs = {},
         **kwargs,
     ):
         if encoder is None:
             encoder = NARGNNEncoder(
                 env_name=env_name,
+                **encoder_kwargs,
             )
         if decoder is None:
             decoder = NonAutoregressiveDecoder()
@@ -44,9 +45,9 @@ class UDCPolicy(NonAutoregressivePolicy):
             **kwargs,
         )
 
-        self.n_samples = n_samples
         self.reviser = reviser
-        self.sub_num_locs = sub_num_locs
+        self.sub_num_loc = reviser.env.generator.num_loc
+        self.sub_norm = sub_norm
 
     def forward(
         self,
@@ -54,12 +55,12 @@ class UDCPolicy(NonAutoregressivePolicy):
         env: Union[str, RL4COEnvBase, None] = None,
         phase: str = "train",
         calc_reward: bool = True,
-        return_actions: bool = False,
+        return_actions: bool = True,
         return_entropy: bool = False,
         return_init_embeds: bool = False,
         return_sum_log_likelihood: bool = True,
-        return_partitions: bool = True,
-        return_partitions_actions: bool = True,
+        return_partitions: bool = False,
+        return_partitions_actions: bool = False,
         actions=None,
         **decoding_kwargs,
     ) -> dict:
@@ -74,13 +75,12 @@ class UDCPolicy(NonAutoregressivePolicy):
             return_entropy = return_entropy,
             return_init_embeds = return_init_embeds,
             return_sum_log_likelihood = return_sum_log_likelihood,
-            num_starts = self.n_samples,
             actions = actions,
             **decoding_kwargs,
         )
 
-
-        td_sample = batchify(td, self.n_samples)
+        num_starts = decoding_kwargs.get('num_starts')
+        td_sample = batchify(td, num_starts)
         par_actions = par_out["actions"]
         par_log_likelihood = par_out["log_likelihood"]
 
@@ -91,37 +91,38 @@ class UDCPolicy(NonAutoregressivePolicy):
         batch_size = sub_locs.size(0)
         n_partitions = sub_locs.size(1)
         n_nodes = sub_locs.size(2)
+        assert self.sub_num_loc == n_nodes
         sub_locs = rearrange(sub_locs, "b p n d -> (b p) n d", b=batch_size, p=n_partitions, n=n_nodes, d=2)
         
         # set sub environments
-        sub_env = self.reviser.env
-        assert sub_env.generator.num_loc == n_nodes
-        sub_td = sub_env.reset(batch_size=batch_size*n_partitions).to(device)
+        sub_td = self.reviser.env.reset(batch_size=batch_size*n_partitions).to(device)
         sub_td.set("locs", sub_locs)
 
         # Call reviser to solve the sub-routes and record the best
         best_revised_reward = torch.full(sub_td.shape[:1], float("-inf")).to(device)
         best_revised_actions = torch.zeros(sub_td["locs"].shape[:-1], dtype=torch.int64).to(device)
         reviser = self.reviser.to(device)
-        num_starts = reviser.num_starts
+        sub_num_starts = reviser.num_starts
         reviser_out = reviser(
             sub_td.clone(), 
-            phase="test", 
-            decode_type=reviser.policy.test_decode_type,
+            phase=phase, 
             multisample=True, 
-            num_starts=num_starts,  
-            return_actions=True
+            num_starts=sub_num_starts,  
+            return_actions=True,
         )
-        if num_starts > 1:
-            reward = unbatchify(reviser_out["reward"], num_starts)
-            actions = unbatchify(reviser_out["actions"], num_starts)
-            log_likelihood = unbatchify(reviser_out["log_likelihood"], num_starts)
+        if sub_num_starts > 1:
+            reward = unbatchify(reviser_out["reward"], sub_num_starts)
+            actions = unbatchify(reviser_out["actions"], sub_num_starts)
+            log_likelihood = unbatchify(reviser_out["log_likelihood"], sub_num_starts)
+            if phase == "train":
+                reviser_out = reviser.calculate_loss(sub_td, sub_td, reviser_out, reward, log_likelihood)
             reward, max_idxs = reward.max(dim=1)
             actions = gather_by_index(actions, max_idxs, dim=1)
             log_likelihood = gather_by_index(log_likelihood, max_idxs, dim=1)
         else:
             reward = reviser_out["reward"]
             actions = reviser_out["actions"]
+            assert phase != "train"
 
         # Record the best
         improve_flag = reward > best_revised_reward
@@ -130,17 +131,19 @@ class UDCPolicy(NonAutoregressivePolicy):
 
         # Construct final output
         # log_likelihood = rearrange(log_likelihood, "(b p) -> b p", b=batch_size, p=n_partitions)
-        out = {"log_likelihood": par_log_likelihood}
-
-        if calc_reward:
-            best_revised_reward = rearrange(best_revised_reward, "(b p) -> b p", b=batch_size, p=n_partitions)
-            best_revised_reward = best_revised_reward.sum(dim=-1)
-            out["reward"] = best_revised_reward
-        if return_actions:
+        out = {
+            "log_likelihood": par_log_likelihood,
+            "reviser_loss": reviser_out.get("loss", None)
+        }
+        
+        if return_actions or calc_reward:
             final_actions = rearrange(best_revised_actions, "(b p) l -> b p l", b=batch_size, p=n_partitions)
             final_actions = gather_by_index(partition, final_actions, dim=-1)    
             final_actions = self.reconnect(final_actions, tail)
             out["actions"] = final_actions
+            if calc_reward:
+                final_reward = env.get_reward(td_sample, final_actions)
+                out["reward"] = final_reward
         
         if return_entropy:
             out["entropy"] = par_out["entropy"]
@@ -156,7 +159,9 @@ class UDCPolicy(NonAutoregressivePolicy):
 
     def partition(self, td: TensorDict, actions: torch.Tensor):
         if self.env_name in ["tsp", "pctsp"]:
-            locs, partition, tail = self.partition_tsp(td, actions, self.sub_num_locs - 1)
+            locs, partition, tail = self.partition_tsp(td, actions, self.sub_num_loc - 1)
+        if self.sub_norm:
+            locs = self.min_max_normalize(locs) 
         return locs, partition, tail
     
     def reconnect(self, actions: torch.Tensor, tail: Optional[torch.Tensor]):
@@ -210,7 +215,7 @@ class UDCPolicy(NonAutoregressivePolicy):
             actions [bs*n_samples, seq_len]
         """
         actions = actions[:, :, :-1].flatten(start_dim=1)
-        if tail:
+        if tail is not None:
             actions = torch.cat(
                 [
                     actions,
@@ -219,3 +224,14 @@ class UDCPolicy(NonAutoregressivePolicy):
                 dim=-1,
             )
         return actions
+    
+    @staticmethod
+    def min_max_normalize(locs: torch.Tensor):
+        """
+        Args:
+            locs [..., n, 2]
+        """
+        locs_min = locs.min(dim=-2, keepdim=True).values
+        locs_max = locs.max(dim=-2, keepdim=True).values
+        locs_scale = (locs_max - locs_min).max(dim=-1, keepdim=True).values
+        return (locs - locs_min) / locs_scale

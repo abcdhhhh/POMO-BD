@@ -18,8 +18,7 @@ class UDC(REINFORCE):
         policy: UDCPolicy = None,
         baseline: Union[REINFORCEBaseline, str] = "shared",
         reviser: nn.Module = None,
-        n_samples: int = 50,
-        max_len_sequence: int = 100,
+        num_starts: int = None,
         policy_kwargs={},
         baseline_kwargs={},
         **kwargs,
@@ -27,47 +26,46 @@ class UDC(REINFORCE):
         if policy is None:
             policy = UDCPolicy(
                 env_name=env.name,
-                n_samples=n_samples,
-                max_len_sequence=max_len_sequence,
                 reviser=reviser,
                 **policy_kwargs,
             )
 
         super().__init__(env, policy, baseline, baseline_kwargs, **kwargs)
+        self.num_starts = num_starts
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
         td = self.env.reset(batch)
-        n_samples = self.policy.n_samples
+        num_starts = self.num_starts
 
         # Evaluate policy
         out = self.policy(
-            td=td,
-            env=self.env,
-            phase=phase,
-            return_actions=True,
+            td, env=self.env, phase=phase, num_starts=num_starts, multisample=True, return_actions=True
         )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
-        reward = unbatchify(out["reward"], (n_samples))
+        reward = unbatchify(out["reward"], (num_starts))
         # Training phase
         if phase == "train":
-            assert n_samples > 1, "num_starts must be > 1 during training"
-            log_likelihood = unbatchify(out["log_likelihood"], (n_samples))
+            assert num_starts > 1, "num_starts must be > 1 during training"
+            log_likelihood = unbatchify(out["log_likelihood"], (num_starts))
             out = self.calculate_loss(td, batch, out, reward, log_likelihood)
             max_reward, max_idxs = reward.max(dim=-1)
             out.update({"max_reward": max_reward})
+
+            # change loss
+            out.update({"divider_loss": out["loss"], "loss": out["loss"]+out["reviser_loss"]})
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
-            if n_samples > 1:
+            if num_starts > 1:
                 # max multi-start reward
                 max_reward, max_idxs = reward.max(dim=-1)
                 out.update({"max_reward": max_reward})
 
                 if out.get("actions", None) is not None:
                     # Reshape batch to [batch_size, num_augment, num_starts, ...]
-                    actions = unbatchify(out["actions"], (n_samples))
+                    actions = unbatchify(out["actions"], (num_starts))
                     out.update(
                         {"best_multistart_actions": gather_by_index(actions, max_idxs, dim=max_idxs.dim())}
                     )
