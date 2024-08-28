@@ -137,7 +137,6 @@ class UDCPolicy(NonAutoregressivePolicy):
         best_revised_reward = sub_env.get_reward(sub_td, best_revised_actions)
         reviser = self.reviser.to(device)
         sub_num_starts = reviser.num_starts
-        import pdb; pdb.set_trace()
         reviser_out = reviser(
             sub_td.clone(), 
             phase=phase, 

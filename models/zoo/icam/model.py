@@ -115,7 +115,7 @@ class ICAM(REINFORCE):
 
                 if out.get("actions", None) is not None:
                     actions_ = (
-                        out["best_multistart_actions"] if n_start > 1 else out["actions"]
+                        out["best_multistart_actions"] if n_start > 1 else unbatchify(out["actions"], n_aug)
                     )
                     out.update({"best_aug_actions": gather_by_index(actions_, max_idxs)})
 

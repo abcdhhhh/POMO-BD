@@ -50,7 +50,7 @@ model:
   policy_kwargs:
     sub_norm: true
     # set 2 for training
-    iters: 2
+    iters: 50
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: multistart_sampling
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others

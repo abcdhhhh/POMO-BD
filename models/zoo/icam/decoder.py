@@ -137,14 +137,12 @@ class ICAMDecoder(AttentionModelDecoder):
         current_node = td["current_node"]
         if num_starts > 1:
             if len(current_node.shape) == 3:
-                assert current_node.size(-1) == 1
-                current_node = current_node[..., 0]
+                current_node = current_node.squeeze(-1)
             current_node = current_node[..., None].expand(*current_node.size(), n)
             bias = torch.gather(cached.bias, dim=-2, index=current_node)
         else:
             if len(current_node.shape) == 2:
-                assert current_node.size(-1) == 1
-                current_node = current_node[..., 0]
+                current_node = current_node.squeeze(-1)
             bias = cached.bias[torch.arange(b), current_node]
         logits = logits - bias
 
