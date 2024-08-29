@@ -102,6 +102,6 @@ trainer:
   max_epochs: 500
   precision: 32-true
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: wandb
+  logger: null
 
 seed: 1234

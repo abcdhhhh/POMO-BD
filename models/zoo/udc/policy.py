@@ -11,10 +11,15 @@ from models.zoo.icam.policy import ICAMPolicy
 from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 from tensordict import TensorDict
+from .partition import partition_tsp, reconnect_tsp
 
 log = get_pylogger(__name__)
 
 class UDCPolicy(ICAMPolicy):
+    """
+    Following UDC (https://arxiv.org/abs/2407.00312)
+    But using ICAM instead of GNN for dividing
+    """
     def __init__(
         self,
         encoder: nn.Module=None,
@@ -160,7 +165,7 @@ class UDCPolicy(ICAMPolicy):
 
     def partition(self, td: TensorDict, actions: torch.Tensor, offset: int=0):
         if self.env_name == "tsp":
-            locs, partition, tail = self.partition_tsp(td, actions, self.sub_num_loc - 1, offset)
+            locs, partition, tail = partition_tsp(td, actions, self.sub_num_loc - 1, offset)
         # normalize sub-graph locs
         if self.sub_norm:
             locs = self.min_max_normalize(locs) 
@@ -168,65 +173,7 @@ class UDCPolicy(ICAMPolicy):
     
     def reconnect(self, actions: torch.Tensor, tail: Optional[torch.Tensor]) -> torch.Tensor:
         if self.env_name == "tsp":
-            actions = self.reconnect_tsp(actions, tail)
-        return actions
-    
-    @staticmethod
-    def partition_tsp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: int=0):
-        """
-        Args:
-            td [bs*n_samples]
-            actions [bs*n_samples, seq_len]
-            n_edges = n_nodes-1
-        Returns:
-            locs [bs*n_samples, n_partitions, n_nodes, 2]
-            partition [bs*n_samples, n_partitions, n_nodes]
-            tail [bs*n_samples, r] or None
-        """
-        seq_len = actions.size(-1)
-        n_partitions = seq_len // n_edges
-        par_len = n_partitions * n_edges
-        actions = actions.roll(shifts=-offset, dims=1)
-        partition = actions[:, :par_len].reshape(-1, n_partitions, n_edges)    
-        if seq_len > par_len:
-            tail = actions[:, par_len:]
-            last_node = actions[:, n_edges::n_edges, None]
-        else:
-            tail = None 
-            last_node = actions[:, 0::n_edges, None].roll(shifts=-1, dims=1)
-        partition = torch.cat(
-            [
-                partition,
-                last_node,
-            ],
-            dim=-1,
-        )
-        # Expand the locs
-        locs = td["locs"].unsqueeze(1).expand(-1, n_partitions, -1, -1)
-        # Get the locations of the partitions
-        locs = gather_by_index(locs, partition, dim=-2)
-
-        return locs, partition, tail
-
-    @staticmethod
-    def reconnect_tsp(actions: torch.Tensor, tail: Optional[torch.Tensor], offset: int=0):
-        """
-        Args:
-            actions [bs*n_samples, n_partitions, n_nodes]
-            tail [bs*n_samples, r] or None
-        Returns:
-            actions [bs*n_samples, seq_len]
-        """
-        actions = actions[:, :, :-1].flatten(start_dim=1)
-        if tail is not None:
-            actions = torch.cat(
-                [
-                    actions,
-                    tail,
-                ],
-                dim=-1,
-            )
-        actions = actions.roll(shifts=offset, dims=1)
+            actions = reconnect_tsp(actions, tail)
         return actions
     
     @staticmethod

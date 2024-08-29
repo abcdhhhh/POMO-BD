@@ -39,8 +39,7 @@ class ICAMPolicy(AutoregressivePolicy):
             **kwargs
         ):
         """
-        Following PolyNet, if first action is not sensitive,
-        val_decode_type can be changed to "multistart_greedy" for better performance.
+        You can set decode_type to multistart for symmetric problems
         """
 
         if encoder is None:
