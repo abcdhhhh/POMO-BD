@@ -226,6 +226,7 @@ class UDCPolicy(ICAMPolicy):
                 ],
                 dim=-1,
             )
+        actions = actions.roll(shifts=offset, dims=1)
         return actions
     
     @staticmethod

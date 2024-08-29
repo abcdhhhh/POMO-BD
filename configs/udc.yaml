@@ -81,7 +81,7 @@ model:
 
 reviser:
   elite_k: 1
-  elite_alpha: 1.
+  elite_alpha: 0.
   num_starts: 50 # beta
   policy_kwargs:
     train_decode_type: sampling
@@ -89,7 +89,7 @@ reviser:
     val_decode_type: sampling
     test_decode_type: ${reviser.policy_kwargs.val_decode_type}
     # set 'poly' for polynet attention, 'null' for simple attention
-    pointer: poly
+    pointer: null
     # set 'am' for am encoder, 'null' for icam encoder
     encoder: null
     embed_dim: ${embed_dim}
