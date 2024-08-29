@@ -6,12 +6,7 @@ from rl4co.envs import RL4COEnvBase, get_env
 from rl4co.models.rl.common.base import RL4COLitModule
 
 from einops import rearrange
-from rl4co.models.common.constructive.nonautoregressive import (
-    NonAutoregressiveEncoder,
-    NonAutoregressiveDecoder,
-    NonAutoregressivePolicy,
-)
-from rl4co.models.zoo.nargnn.encoder import NARGNNEncoder
+from models.zoo.icam.policy import ICAMPolicy
 
 from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
@@ -19,26 +14,17 @@ from tensordict import TensorDict
 
 log = get_pylogger(__name__)
 
-class UDCPolicy(NonAutoregressivePolicy):
+class UDCPolicy(ICAMPolicy):
     def __init__(
         self,
-        encoder: NonAutoregressiveEncoder = None,
-        decoder: NonAutoregressiveDecoder = None,
+        encoder: nn.Module=None,
+        decoder: nn.Module=None,
         env_name: Union[str, RL4COEnvBase] = "tsp",
         reviser: nn.Module = None,
         sub_norm: bool = True,
         iters: int = 2,
-        encoder_kwargs = {},
         **kwargs,
     ):
-        if encoder is None:
-            encoder = NARGNNEncoder(
-                env_name=env_name,
-                **encoder_kwargs,
-            )
-        if decoder is None:
-            decoder = NonAutoregressiveDecoder()
-
         super().__init__(
             encoder=encoder,
             decoder=decoder,
