@@ -123,14 +123,43 @@ def generate_dataset_(
                     np.savez(fname, **dataset)
 
 if __name__ == '__main__':
-    generate_dataset_(
-        data_dir="./data",
-        name="test",
-        seed=1234,
-        problem="pctsp",
-        # data_distribution="dist",
-        dataset_size=16,
-        graph_sizes=[2000],
-        # max_lengths={500: 4.0, 1000: 4.0, 2000: 4.0},
-        max_lengths={500: 9.0, 1000: 12.0, 2000: 15.0, 5000: 20.0},
-    )
+    for problem, data_distribution in [("tsp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all")]:
+        # set sizes  
+        if problem == "tsp":
+            sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 2000, 5000]), (16, [10000])]
+        elif problem == "vrp":
+            sizes = [(10000, [20, 50, 100]), (128, [500]), (100, [1000, 2000, 5000, 7000])]
+        elif problem in ["op", "pctsp"]:
+            sizes = [(10000, [20, 50, 100]), (128, [500, 1000]), (16, [2000])]
+
+        kwargs = {}
+        # set capacities
+        if problem == "vrp":
+            kwargs['capacities'] = {
+                20: 30.0,
+                50: 40.0,
+                100: 50.0,
+                500: 100.0,
+                1000: 200.0,
+                2000: 300.0,
+                5000: 300.0,
+                7000: 300.0,
+            }
+        # set max_lengths
+        if problem == "op":
+            kwargs['max_lengths'] = {20: 2.0, 50: 3.0, 100: 4.0, 500: 4.0, 1000: 4.0, 2000: 4.0, 5000: 4.0}
+        elif problem == "pctsp":
+            kwargs['max_lengths'] = {20: 2.0, 50: 3.0, 100: 4.0, 500: 9.0, 1000: 12.0, 2000: 15.0, 5000: 20.0} 
+
+        for dataset_size, graph_sizes in sizes:
+            for name, seed in [("val", 4321), ("test", 1234)]:
+                generate_dataset_(
+                    data_dir="./data",
+                    name=name,
+                    seed=seed,
+                    problem=problem,
+                    data_distribution=data_distribution,
+                    dataset_size=dataset_size,
+                    graph_sizes=graph_sizes,
+                    **kwargs,
+                )
