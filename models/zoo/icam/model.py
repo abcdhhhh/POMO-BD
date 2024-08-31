@@ -42,9 +42,6 @@ class ICAM(REINFORCE):
             policy_kwargs_with_defaults.update(policy_kwargs)
             policy = ICAMPolicy(env_name=env.name, **policy_kwargs_with_defaults)
 
-        assert baseline == "shared", "ICAM only supports shared baseline"
-
-        # Initialize with the shared baseline
         super(ICAM, self).__init__(env, policy, baseline, **kwargs)
 
         self.num_starts = num_starts
@@ -86,7 +83,6 @@ class ICAM(REINFORCE):
 
         # Training phase
         if phase == "train":
-            assert n_start > 1, "num_starts must be > 1 during training"
             log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
             self.calculate_loss(td, batch, out, reward, log_likelihood)
             max_reward, max_idxs = reward.max(dim=-1)

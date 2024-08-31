@@ -8,35 +8,31 @@ from rl4co.utils.ops import batchify, gather_by_index, unbatchify
 def partition_tsp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: int=0):
     """
     Args:
-        td [bs*n_samples]:
-            locs [bs*n_samples, n_nodes, 2]
-        actions [bs*n_samples, seq_len]
-        n_edges = n_nodes-1
+        td [B]:
+            locs [B, N, 2]
+        actions [B, L]
+        n_edges = n - 1
     Returns:
-        locs [bs*n_samples, n_partitions, n_nodes, 2]
-        partition [bs*n_samples, n_partitions, n_nodes]
-        tail [bs*n_samples, r] or None
+        locs [B, p, n, 2]
+        partition [B, p, n]
+        tail [B, r] or None
+        L = p * n_edges + r
     """
-    seq_len = actions.size(-1)
-    n_partitions = seq_len // n_edges
-    par_len = n_partitions * n_edges
+    L = actions.size(-1)
+    n_parts = L // n_edges
+    L0 = n_parts * n_edges
     actions = actions.roll(shifts=-offset, dims=1)
-    partition = actions[:, :par_len].reshape(-1, n_partitions, n_edges)    
-    if seq_len > par_len:
-        tail = actions[:, par_len:]
+    partition = actions[:, :L0].reshape(-1, n_parts, n_edges)    
+    if L > L0:
+        tail = actions[:, L0:]
         last_node = actions[:, n_edges::n_edges, None]
     else:
         tail = None 
         last_node = actions[:, 0::n_edges, None].roll(shifts=-1, dims=1)
-    partition = torch.cat(
-        [
-            partition,
-            last_node,
-        ],
-        dim=-1,
-    )
+    partition = torch.cat([partition, last_node], dim=-1)
+
     # Expand the locs
-    locs = td["locs"].unsqueeze(1).expand(-1, n_partitions, -1, -1)
+    locs = td["locs"].unsqueeze(1).expand(-1, n_parts, -1, -1)
     # Get the locations of the partitions
     locs = gather_by_index(locs, partition, dim=-2)
 
@@ -45,19 +41,40 @@ def partition_tsp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: i
 def reconnect_tsp(actions: torch.Tensor, tail: Optional[torch.Tensor], offset: int=0):
     """
     Args:
-        actions [bs*n_samples, n_partitions, n_nodes]
-        tail [bs*n_samples, r] or None
+        actions [B, p, n]
+        tail [B, r] or None
     Returns:
-        actions [bs*n_samples, seq_len]
+        actions [B, L]
+        L = p * n_edges + r
     """
     actions = actions[:, :, :-1].flatten(start_dim=1)
     if tail is not None:
-        actions = torch.cat(
-            [
-                actions,
-                tail,
-            ],
-            dim=-1,
-        )
-    actions = actions.roll(shifts=offset, dims=1)
+        actions = torch.cat([actions, tail], dim=-1)
     return actions
+
+def partition_cvrp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: int=0):
+    """
+    Args:
+        td [B]:
+            locs [B, N, 2]
+            capacity [B, 1]
+            demand [B, N-1]
+            depot [B, 2]
+        actions [B, L]
+        n_edges = n - 1
+    Returns:
+        locs [B, p, n, 2]
+        partition [B, p, n]
+        tail [B, r] or None
+        L = p * n_edges + r
+    """
+    pass
+
+def reconnect_cvrp(actions: torch.Tensor, tail: Optional[torch.Tensor], offset: int=0):
+    pass
+
+def partition_pctsp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: int=0):
+    pass
+
+def reconnect_pctsp(actions: torch.Tensor, tail: Optional[torch.Tensor], offset: int=0):
+    pass

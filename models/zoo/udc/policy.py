@@ -52,7 +52,9 @@ class UDCPolicy(ICAMPolicy):
         return_entropy: bool = False,
         return_init_embeds: bool = False,
         return_sum_log_likelihood: bool = True,
-        actions=None,
+        calc_par_reward: bool = False,
+        return_par_actions: bool = False,
+        actions = None,
         **decoding_kwargs,
     ) -> dict:
         par_out = super().forward(
@@ -85,19 +87,23 @@ class UDCPolicy(ICAMPolicy):
             if loss is not None:
                 reviser_loss = reviser_loss + loss 
         out = {"reviser_loss": reviser_loss}
-        
-        if return_actions or calc_reward:
+
+        if calc_reward:
+            reward = env.get_reward(td_sample, actions)
+            out["reward"] = reward
+        if return_actions:
             out["actions"] = actions
-            if calc_reward:
-                reward = env.get_reward(td_sample, actions)
-                out["reward"] = reward
-        
         if return_entropy:
             out["entropy"] = par_out["entropy"]
         if return_init_embeds:
             out["init_embeds"] = par_out["init_embeds"]
         if return_sum_log_likelihood:
             out["log_likelihood"] = par_out["log_likelihood"]
+        if calc_par_reward:
+            par_reward = env.get_reward(td_sample, par_actions)
+            out["par_reward"] = par_reward
+        if return_par_actions:
+            out["par_actions"] = par_actions
 
         return out
     
@@ -137,19 +143,15 @@ class UDCPolicy(ICAMPolicy):
         )
 
         # get best actions
-        if sub_num_starts > 1:
-            reward = unbatchify(reviser_out["reward"], sub_num_starts)
-            actions = unbatchify(reviser_out["actions"], sub_num_starts)
-            log_likelihood = unbatchify(reviser_out["log_likelihood"], sub_num_starts)
-            if phase == "train":
-                reviser_out = reviser.calculate_loss(sub_td, sub_td, reviser_out, reward, log_likelihood)
-            reward, max_idxs = reward.max(dim=1)
-            actions = gather_by_index(actions, max_idxs, dim=1)
-            log_likelihood = gather_by_index(log_likelihood, max_idxs, dim=1)
-        else:
-            reward = reviser_out["reward"]
-            actions = reviser_out["actions"]
-            assert phase != "train"
+        reward = unbatchify(reviser_out["reward"], sub_num_starts)
+        actions = unbatchify(reviser_out["actions"], sub_num_starts)
+        log_likelihood = unbatchify(reviser_out["log_likelihood"], sub_num_starts)
+        if phase == "train":
+            reviser_out = reviser.calculate_loss(sub_td, sub_td, reviser_out, reward, log_likelihood)
+        reward, max_idxs = reward.max(dim=1)
+        actions = gather_by_index(actions, max_idxs, dim=1)
+        log_likelihood = gather_by_index(log_likelihood, max_idxs, dim=1)
+        
         loss = reviser_out.get("loss", None)
 
         # Record the best
