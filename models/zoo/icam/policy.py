@@ -10,7 +10,7 @@ from .decoder import ICAMDecoder
 class ICAMPolicy(AutoregressivePolicy):
     def __init__(
             self,
-            encoder: nn.Module = None,
+            encoder: Union[str, nn.Module] = None,
             decoder: nn.Module = None, 
             embed_dim: int = 128,
             num_heads: int = 8,
@@ -28,7 +28,7 @@ class ICAMPolicy(AutoregressivePolicy):
             mask_inner: bool = True,
             out_bias_pointer_attn: bool = False,
             check_nan: bool = True,
-            pointer: nn.Module = None,
+            pointer: Union[str, nn.Module] = None,
             temperature: float = 1.0,
             tanh_clipping: float = 50.0,
             mask_logits: bool = True,
@@ -42,11 +42,33 @@ class ICAMPolicy(AutoregressivePolicy):
         You can set decode_type to multistart for symmetric problems
         """
 
+        if pointer == "poly":
+            from rl4co.models.nn.attention import PolyNetAttention
+            pointer = PolyNetAttention(
+                k=128,
+                embed_dim=embed_dim,
+                poly_layer_dim=embed_dim*2,
+                num_heads=num_heads,
+            )
+
         if encoder is None:
             encoder = ICAMEncoder(
                 embed_dim=embed_dim,
                 init_embedding=init_embedding,
                 env_name=env_name,
+                num_layers=num_encoder_layers,
+                normalization=normalization,
+                feedforward_hidden=feedforward_hidden,
+                net=encoder_network,
+                moe_kwargs=moe_kwargs["encoder"],
+            )
+        elif encoder == "am":
+            from rl4co.models.zoo.am.encoder import AttentionModelEncoder
+            encoder = AttentionModelEncoder(
+                embed_dim=embed_dim,
+                init_embedding=init_embedding,
+                env_name=env_name,
+                num_heads=num_heads,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
                 feedforward_hidden=feedforward_hidden,

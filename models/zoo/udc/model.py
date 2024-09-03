@@ -1,114 +1,168 @@
-from typing import Any, Union, Optional
+from typing import Optional, Any
 
+import torch
 import torch.nn as nn
+from rl4co.models.rl.common.base import RL4COLitModule
+from tensordict import TensorDict
+from einops import rearrange
+from rl4co.utils.ops import gather_by_index, unbatchify, batchify
+from .partition import partition_tsp, reconnect_tsp, reverse_aug
 
-from rl4co.envs.common.base import RL4COEnvBase
-from rl4co.models.rl import REINFORCE
-from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline
-from rl4co.utils.ops import gather_by_index, unbatchify
+from rl4co.utils.pylogger import get_pylogger
 
-from models.zoo.icam.model import ICAM
-from .policy import UDCPolicy
+log = get_pylogger(__name__)
 
-
-class UDC(ICAM):
+class UDC(RL4COLitModule): 
     def __init__(
         self,
-        env: RL4COEnvBase,
-        policy: UDCPolicy = None,
-        policy_kwargs={},
-        num_augment: int = 1,
-        num_starts: int = None,
-        elite_k: int = 1,
-        elite_alpha: float = 0.,
-        reviser: nn.Module = None,
+        model_d: RL4COLitModule,    # divider
+        model_r: RL4COLitModule,    # reviser
+        alpha: int,
+        beta: int,
+        iters: int = 2,
+        sub_norm: bool = True,
+        dirs: int = 2,
         **kwargs,
     ):
-        if policy is None:
-            policy_kwargs_with_defaults = {
-                "num_encoder_layers": 6,
-                "normalization": "instance",
-                "use_graph_context": False,
-            }
-            policy_kwargs_with_defaults.update(policy_kwargs)
-            policy = UDCPolicy(
-                env_name=env.name,
-                reviser=reviser,
-                **policy_kwargs_with_defaults,
-            )
-
         super().__init__(
-            env=env,
-            policy=policy,
-            num_augment=num_augment,
-            num_starts=num_starts,
-            elite_k=elite_k,
-            elite_alpha=elite_alpha,
+            env = model_d.env,
+            policy = None,
             **kwargs,
         )
-
-    def shared_step(
-        self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
-    ):
+        self.model_d = model_d
+        self.model_r = model_r
+        self.alpha = alpha
+        self.beta = beta
+        self.iters = iters
+        self.sub_norm = sub_norm,
+        self.dirs = dirs
+    
+    def infer(self, batch: TensorDict, phase_d: str, phase_r: str, ns_d: int, ns_r: int, **kwargs):
         td = self.env.reset(batch)
-        n_aug, n_start = self.num_augment, self.num_starts
-        n_start = self.env.get_num_starts(td) if n_start is None else n_start
-
-        # During training, we do not augment the data
-        if phase == "train":
-            n_aug = 0
-        elif n_aug > 1:
-            td = self.augment(td)
-
-        # Evaluate policy
-        # Set multisample=True to sample solutions with same start
-        out = self.policy(
-            td, env=self.env, phase=phase, num_starts=n_start, multisample=True, return_actions=True
+        out_d = self.model_d.forward(
+            td.clone(), phase=phase_d, num_starts=ns_d, multisample=True, return_actions=True
         )
 
-        # Unbatchify reward to [batch_size, num_augment, num_starts].
-        reward = unbatchify(out["reward"], (n_aug, n_start))
+        td = batchify(td, ns_d)
+        actions = out_d["actions"]
+        loss_r = 0.
+        for i in range(self.iters):
+            if i == 0:
+                offset = 0
+            elif i == 1:
+                offset = self.model_r.env.generator.num_loc // 2
+            else:
+                offset = torch.randint(0, self.model_r.env.generator.num_loc, (1,)).item()
+            actions, loss = self.revise(
+                td = td,
+                actions = actions,
+                phase = phase_r,
+                num_starts = ns_r,
+                offset = offset,
+            )
+            if phase_r == "train":
+                loss_r = loss_r + loss
+        if phase_r == "train":
+            out_d.update({"loss_r": loss_r})
 
-        # Training phase
-        if phase == "train":
-            assert n_start > 1, "num_starts must be > 1 during training"
-            log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
-            self.calculate_loss(td, batch, out, reward, log_likelihood)
+        reward = unbatchify(self.model_d.env.get_reward(td, actions), ns_d)
+        out_d.update({"reward": reward})
+        if phase_d == "train":
+            ll_d = unbatchify(out_d["log_likelihood"], ns_d)
+            self.model_d.calculate_loss(td, td, out_d, reward, ll_d)
+        if ns_d > 1:
             max_reward, max_idxs = reward.max(dim=-1)
-            out.update({"max_reward": max_reward})
-        # Get multi-start (=POMO) rewards and best actions only during validation and test
+            out_d.update({"max_reward": max_reward})
+        return out_d
+    
+    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
+        if phase == "train":
+            out = self.infer(batch, phase, "val", self.alpha, 1) 
+            out_r = self.infer(batch, "val", phase, 1, self.beta)
+            # out_r = out = self.infer(batch, phase, phase, self.alpha, self.beta)
+            out.update({"loss_d": out["loss"], "loss_r": out_r["loss_r"], "loss": out["loss"] + out_r["loss_r"]})
         else:
-            if n_start > 1:
-                # max multi-start reward
-                max_reward, max_idxs = reward.max(dim=-1)
-                out.update({"max_reward": max_reward})
-
-                if out.get("actions", None) is not None:
-                    # Reshape batch to [batch_size, num_augment, num_starts, ...]
-                    actions = unbatchify(out["actions"], (n_aug, n_start))
-                    out.update(
-                        {"best_multistart_actions": gather_by_index(actions, max_idxs, dim=max_idxs.dim())}
-                    )
-                    out["actions"] = actions
-
-            # Get augmentation score only during inference
-            if n_aug > 1:
-                # If multistart is enabled, we use the best multistart rewards
-                reward_ = max_reward if n_start > 1 else reward
-                max_aug_reward, max_idxs = reward_.max(dim=1)
-                out.update({"max_aug_reward": max_aug_reward})
-
-                if out.get("actions", None) is not None:
-                    actions_ = (
-                        out["best_multistart_actions"] if n_start > 1 else unbatchify(out["actions"], n_aug)
-                    )
-                    out.update({"best_aug_actions": gather_by_index(actions_, max_idxs)})
-
-        if phase=="train":
-            out.update({
-                'divider_loss': out['loss'],
-                'loss': out['loss'] + out['reviser_loss'],
-            })
-
+            out = self.infer(batch, phase, phase, self.alpha, 1)
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
+
+    def revise(
+        self, 
+        td: TensorDict, 
+        actions: torch.Tensor, 
+        phase: str,
+        num_starts: int,
+        offset: int = 0, 
+    ):
+        device = td.device
+
+        # Based on partition actions to get partitions
+        td_p, partition, tail = self.partition(td, actions, offset)
+        if self.dirs == 2:
+            td_p, partition = reverse_aug(td_p, partition)
+
+        # Batchify the sub_locs along the partitions
+        batch_size, n_partitions, n_nodes = partition.shape
+        
+        # set sub environments
+        td = self.model_r.env.reset(batch_size=batch_size*n_partitions).to(device)
+        td.update(td_p)
+
+        # Call reviser to solve the sub-routes and record the best
+        out_r = self.model_r.forward(
+            td.clone(), 
+            phase=phase, 
+            multisample=True, 
+            num_starts=num_starts,  
+            return_actions=True,
+        )
+        
+        # get best actions
+        reward = unbatchify(out_r["reward"], num_starts * self.dirs)
+        actions = unbatchify(out_r["actions"], num_starts * self.dirs)
+        log_likelihood = unbatchify(out_r["log_likelihood"], num_starts * self.dirs)
+        if phase == "train":
+            out_r = self.model_r.calculate_loss(td, td, out_r, reward, log_likelihood)
+        reward, max_idxs = reward.max(dim=1)  
+
+        actions = gather_by_index(actions, max_idxs, dim=1)
+        if self.dirs == 2:
+            reverse_flag = max_idxs % 2 == 1
+            actions[reverse_flag] = torch.flip(n_nodes - 1 - actions[reverse_flag], [-1])
+        log_likelihood = gather_by_index(log_likelihood, max_idxs, dim=1)
+        
+        loss = out_r.get("loss", None)
+
+        # Old reward
+        best_revised_actions = torch.arange(n_nodes, device=device)[None, :].expand(batch_size*n_partitions, -1)
+        best_revised_reward = self.model_r.env.get_reward(td, best_revised_actions)
+
+        # Restore reversed 
+        if self.dirs == 2:
+            batch_size = batch_size // self.dirs
+            assert torch.allclose(best_revised_reward[:batch_size*n_partitions], best_revised_reward[batch_size*n_partitions:])
+            best_revised_actions = best_revised_actions[:batch_size*n_partitions]
+            best_revised_reward = best_revised_reward[:batch_size*n_partitions]
+            partition = partition[:batch_size]
+
+        # Replace with better reward
+        improve_flag = reward > best_revised_reward
+        best_revised_reward = torch.where(improve_flag, reward, best_revised_reward)
+        best_revised_actions = torch.where(improve_flag.unsqueeze(1), actions, best_revised_actions)
+
+        # reconnect
+        best_revised_actions = rearrange(best_revised_actions, "(b p) l -> b p l", b=batch_size, p=n_partitions)
+        best_revised_actions = gather_by_index(partition, best_revised_actions, dim=-1)    
+        final_actions = self.reconnect(best_revised_actions, tail)
+        return final_actions, loss
+
+    def partition(self, td: TensorDict, actions: torch.Tensor, offset: int=0):
+        if self.model_d.policy.env_name == "tsp":
+            out, partition, tail = partition_tsp(td, actions, self.model_r.env.generator.num_loc, offset, self.sub_norm)
+        return out, partition, tail
+    
+    def reconnect(self, actions: torch.Tensor, tail: Optional[torch.Tensor]) -> torch.Tensor:
+        if self.model_d.policy.env_name == "tsp":
+            actions = reconnect_tsp(actions, tail)
+        return actions
+        

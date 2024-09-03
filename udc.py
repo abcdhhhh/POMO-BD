@@ -17,53 +17,37 @@ from models.zoo.udc.model import UDC
 def run(cfg: DictConfig):
     L.seed_everything(cfg.get("seed", 1234))
 
-    env_params = cfg.env
-    sub_env_params = cfg.sub_env
-    reviser_params_dict = OmegaConf.to_container(cfg.reviser, resolve=True)
+    model_r_params_dict = OmegaConf.to_container(cfg.model_r, resolve=True)
 
-    env = get_env(**env_params)
-    
-    if sub_env_params.env_name == "shpp":
+    env_d = get_env(**cfg.env_d)
+    if cfg.env_r_name == "shpp":
         from envs.routing.shpp.env import SHPPEnv
         from models.nn.env_embeddings.init import SHPPInitEmbedding
         from models.nn.env_embeddings.context import SHPPContext
         from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
-        sub_env = SHPPEnv(**sub_env_params)
+        env_r = SHPPEnv(**cfg.env_r)
         
-        reviser_params_dict['policy_kwargs'].update({
+        model_r_params_dict['policy_kwargs'].update({
             "init_embedding": SHPPInitEmbedding(embed_dim=cfg.embed_dim),
             "context_embedding": SHPPContext(embed_dim=cfg.embed_dim),
             "dynamic_embedding": StaticEmbedding(),
         })
     else:
-        sub_env = get_env(**sub_env_params)
+        env_r = get_env(**cfg.env_r)
 
-    if reviser_params_dict['policy_kwargs']['pointer'] == "poly":
-        from rl4co.models.nn.attention import PolyNetAttention
-        reviser_params_dict['policy_kwargs']['pointer'] = PolyNetAttention(
-            **cfg.poly, 
-            poly_layer_dim=cfg.embed_dim*2
-        )
-
-    if reviser_params_dict['policy_kwargs']['encoder'] == "am":
-        from rl4co.models.zoo.am.encoder import AttentionModelEncoder
-        reviser_params_dict['policy_kwargs']['encoder'] = AttentionModelEncoder(
-            embed_dim=cfg.embed_dim,
-            num_heads=cfg.num_heads,
-            num_layers=reviser_params_dict['policy_kwargs']['num_encoder_layers'],
-            normalization=reviser_params_dict['policy_kwargs']['normalization'],
-        )
-
-    reviser = ICAM(
-        env=sub_env,
-        **reviser_params_dict,
+    model_d = ICAM(
+        env = env_d,
+        **cfg.model_d,
+    )
+    model_r = ICAM(
+        env = env_r,
+        **model_r_params_dict,
     )
 
-    model_params = cfg.model
     model = UDC(
-        env=env,
-        reviser=reviser,
-        **model_params,
+        model_d=model_d,
+        model_r=model_r,
+        **cfg.model,
     )
     
     if cfg.ckpt_path:
@@ -71,7 +55,7 @@ def run(cfg: DictConfig):
         model.load_state_dict(ckpt_state_dict)
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val/max_reward",
+        monitor="val/reward",
         dirpath=os.path.join(cfg.save_dir, "checkpoints", cfg.logger.name),
         filename="{epoch:02d}_{val/reward:.4f}_{val/max_reward:.4f}",
         auto_insert_metric_name=False,

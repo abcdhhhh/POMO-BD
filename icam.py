@@ -34,22 +34,6 @@ def run(cfg: DictConfig):
     else:
         env = get_env(**env_params)
 
-    if model_params_dict['policy_kwargs']['pointer'] == "poly":
-        from rl4co.models.nn.attention import PolyNetAttention
-        model_params_dict['policy_kwargs']['pointer'] = PolyNetAttention(
-            **cfg.poly, 
-            poly_layer_dim=cfg.embed_dim*2
-        )
-
-    if model_params_dict['policy_kwargs']['encoder'] == "am":
-        from rl4co.models.zoo.am.encoder import AttentionModelEncoder
-        model_params_dict['policy_kwargs']['encoder'] = AttentionModelEncoder(
-            embed_dim=cfg.embed_dim,
-            num_heads=cfg.num_heads,
-            num_layers=model_params_dict['policy_kwargs']['num_encoder_layers'],
-            normalization=model_params_dict['policy_kwargs']['normalization'],
-        )
-
     model = ICAM(
         env=env,
         **model_params_dict,

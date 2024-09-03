@@ -151,10 +151,13 @@ class ICAM(REINFORCE):
         advantage = reward - bl_val  # advantage = reward - baseline
         reinforce_loss = -(advantage * log_likelihood).mean()
 
-        top_reward, top_idx = reward.topk(self.elite_k, dim=1)
-        top_loss = -(advantage * log_likelihood).gather(1, top_idx).mean()
+        if self.elite_alpha != 0:
+            top_reward, top_idx = reward.topk(self.elite_k, dim=1)
+            top_loss = -(advantage * log_likelihood).gather(1, top_idx).mean()
+            loss = self.elite_alpha * top_loss + (1 - self.elite_alpha) * reinforce_loss + bl_loss
+        else:
+            loss = reinforce_loss + bl_loss
 
-        loss = self.elite_alpha * top_loss + (1 - self.elite_alpha) * reinforce_loss + bl_loss
         policy_out.update(
             {
                 "loss": loss,
