@@ -23,16 +23,6 @@ logger:
   save_dir: ${save_dir}
   name: icam-${env_name}${num_loc}-${model.num_starts}-${model.policy_kwargs.num_encoder_layers}
 
-# polynet_attention
-poly:
-  k: ${model.num_starts}
-  embed_dim: ${embed_dim}
-  num_heads: ${num_heads}
-  mask_inner: true
-  out_bias_pointer_attn: false 
-  check_nan: true 
-  sdpa_fn: null
-
 model:
   batch_size: 8
   val_batch_size: 32

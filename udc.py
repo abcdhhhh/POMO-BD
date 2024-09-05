@@ -9,6 +9,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 
 from rl4co.utils.trainer import RL4COTrainer
 from rl4co.envs import get_env
+from rl4co.models.zoo.nargnn import NARGNNPolicy
 
 from models.zoo.icam.model import ICAM
 from models.zoo.udc.model import UDC
@@ -37,6 +38,12 @@ def run(cfg: DictConfig):
 
     model_d = ICAM(
         env = env_d,
+        # policy=NARGNNPolicy(
+        #     env_name = cfg.env_d_name,
+        #     embed_dim = 64,
+        #     num_layers_graph_encoder = 12,
+        #     k_sparse = 100,
+        # ),
         **cfg.model_d,
     )
     model_r = ICAM(

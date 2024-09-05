@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Optional, Any
 
 import torch
@@ -7,6 +8,7 @@ from tensordict import TensorDict
 from einops import rearrange
 from rl4co.utils.ops import gather_by_index, unbatchify, batchify
 from .partition import partition_tsp, reconnect_tsp, reverse_aug
+from rl4co.utils.optim_helpers import create_optimizer, create_scheduler
 
 from rl4co.utils.pylogger import get_pylogger
 
@@ -22,6 +24,7 @@ class UDC(RL4COLitModule):
         iters: int = 2,
         sub_norm: bool = True,
         dirs: int = 2,
+        w: float = 0.9,
         **kwargs,
     ):
         super().__init__(
@@ -36,6 +39,21 @@ class UDC(RL4COLitModule):
         self.iters = iters
         self.sub_norm = sub_norm,
         self.dirs = dirs
+        self.w = w
+
+        self.automatic_optimization = False # enable manual optimization
+
+    def configure_optimizers(self, parameters=None):
+        """
+        Args:
+            parameters: parameters to be optimized. If None, will use `self.parameters()`, i.e. all parameters
+        """
+
+        opt_d, sch_d = super().configure_optimizers(self.model_d.parameters())
+        opt_r, sch_r = super().configure_optimizers(self.model_r.parameters())
+        # optim_conf = [opt_d, opt_r], [sch_d, sch_r]
+        # import pdb; pdb.set_trace()
+        return opt_d + opt_r, [sch_d, sch_r]
     
     def infer(self, batch: TensorDict, phase_d: str, phase_r: str, ns_d: int, ns_r: int, **kwargs):
         td = self.env.reset(batch)
@@ -44,8 +62,8 @@ class UDC(RL4COLitModule):
         )
 
         td = batchify(td, ns_d)
+        par_reward = out_d["reward"]
         actions = out_d["actions"]
-        loss_r = 0.
         for i in range(self.iters):
             if i == 0:
                 offset = 0
@@ -61,15 +79,22 @@ class UDC(RL4COLitModule):
                 offset = offset,
             )
             if phase_r == "train":
-                loss_r = loss_r + loss
-        if phase_r == "train":
-            out_d.update({"loss_r": loss_r})
+                # loss_r = loss_r + loss
+                opt_d, opt_r = self.optimizers()
+                opt_r.zero_grad()
+                self.manual_backward(loss)
+                opt_r.step()
+                out_d.update({f"loss_r{i}": loss})
 
         reward = unbatchify(self.model_d.env.get_reward(td, actions), ns_d)
         out_d.update({"reward": reward})
         if phase_d == "train":
             ll_d = unbatchify(out_d["log_likelihood"], ns_d)
-            self.model_d.calculate_loss(td, td, out_d, reward, ll_d)
+            self.model_d.calculate_loss(td, td, out_d, self.w * reward + (1 - self.w) * par_reward, ll_d)
+            opt_d, opt_r = self.optimizers()
+            opt_d.zero_grad()
+            self.manual_backward(out_d["loss"])
+            opt_d.step()
         if ns_d > 1:
             max_reward, max_idxs = reward.max(dim=-1)
             out_d.update({"max_reward": max_reward})
@@ -77,14 +102,10 @@ class UDC(RL4COLitModule):
     
     def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         if phase == "train":
-            out = self.infer(batch, phase, "val", self.alpha, 1) 
-            out_r = self.infer(batch, "val", phase, 1, self.beta)
-            # out_r = out = self.infer(batch, phase, phase, self.alpha, self.beta)
-            out.update({"loss_d": out["loss"], "loss_r": out_r["loss_r"], "loss": out["loss"] + out_r["loss_r"]})
+            out = self.infer(batch, phase, phase, self.alpha, self.beta)
         else:
             out = self.infer(batch, phase, phase, self.alpha, 1)
-        metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
-        return {"loss": out.get("loss", None), **metrics}
+        self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
 
     def revise(
         self, 
