@@ -13,7 +13,7 @@ def partition_tsp(td: TensorDict, actions: torch.Tensor, n_nodes: int, offset: i
         actions [B, L]
         n_edges = n - 1
     Returns:
-        out [B*p]:
+        td_p [B*p]:
             locs [B*p, n, 2]
         partition [B, p, n]
         tail [B, r] or None
@@ -60,7 +60,7 @@ def reconnect_tsp(actions: torch.Tensor, tail: Optional[torch.Tensor], offset: i
         actions = torch.cat([actions, tail], dim=-1)
     return actions
 
-def partition_cvrp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: int=0):
+def partition_cvrp(td: TensorDict, actions: torch.Tensor, n_nodes: int, offset: int=0):
     """
     Args:
         td [B]:
@@ -71,7 +71,8 @@ def partition_cvrp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: 
         actions [B, L]
         n_edges = n - 1
     Returns:
-        locs [B, p, n, 2]
+        td_p: [B*p]
+            locs [B*p, n, 2]
         partition [B, p, n]
         tail [B, r] or None
         L = p * n_edges + r
@@ -81,7 +82,7 @@ def partition_cvrp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: 
 def reconnect_cvrp(actions: torch.Tensor, tail: Optional[torch.Tensor], offset: int=0):
     pass
 
-def partition_pctsp(td: TensorDict, actions: torch.Tensor, n_edges: int, offset: int=0):
+def partition_pctsp(td: TensorDict, actions: torch.Tensor, n_nodes: int, offset: int=0):
     pass
 
 def reconnect_pctsp(actions: torch.Tensor, tail: Optional[torch.Tensor], offset: int=0):

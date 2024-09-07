@@ -1,4 +1,4 @@
-# train or val
+# train/val/test
 mode: train
 env_name: tsp
 num_loc: 500
@@ -59,11 +59,12 @@ model:
   metrics:
     train: ["loss", "reward", "max_reward"]
     val: ["reward", "max_reward", "max_aug_reward"]
+    test: ${model.metrics.val}
     log_on_step: True
 
 trainer:
   max_epochs: 500
-  precision: 32-true
+  precision: 32-true # icam is sensitive to precision, especially icam encoder
   # set 'wandb' if use wandb, 'null' otherwise
   logger: null
   default_root_dir: ${save_dir}

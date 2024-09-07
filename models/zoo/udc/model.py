@@ -62,7 +62,6 @@ class UDC(RL4COLitModule):
         )
 
         td = batchify(td, ns_d)
-        par_reward = out_d["reward"]
         actions = out_d["actions"]
         for i in range(self.iters):
             if i == 0:
@@ -87,7 +86,9 @@ class UDC(RL4COLitModule):
                 out_d.update({f"loss_r{i}": loss})
 
         reward = unbatchify(self.model_d.env.get_reward(td, actions), ns_d)
-        out_d.update({"reward": reward})
+        par_reward = unbatchify(out_d["reward"], ns_d)
+        actions = unbatchify(actions, ns_d)
+        out_d.update({"reward": reward, "actions": actions})
         if phase_d == "train":
             ll_d = unbatchify(out_d["log_likelihood"], ns_d)
             self.model_d.calculate_loss(td, td, out_d, self.w * reward + (1 - self.w) * par_reward, ll_d)

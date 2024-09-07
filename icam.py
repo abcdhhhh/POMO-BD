@@ -65,6 +65,8 @@ def run(cfg: DictConfig):
         trainer.fit(model)
     elif cfg.mode == "val":
         trainer.validate(model)
+    elif cfg.mode == "test":
+        trainer.test(model)
 
 if __name__ == "__main__":
     run()

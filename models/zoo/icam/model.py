@@ -19,7 +19,7 @@ class ICAM(REINFORCE):
     def __init__(
         self,
         env: RL4COEnvBase,
-        policy: nn.Module = None,
+        policy: Union[str, nn.Module] = None,
         policy_kwargs={},
         baseline: str = "shared",
         num_augment: int = 8,
@@ -41,6 +41,9 @@ class ICAM(REINFORCE):
             }
             policy_kwargs_with_defaults.update(policy_kwargs)
             policy = ICAMPolicy(env_name=env.name, **policy_kwargs_with_defaults)
+        elif policy == "dgnn":
+            from models.zoo.dgnn.policy import DGNNPolicy
+            policy = DGNNPolicy(env_name=env.name)
 
         super(ICAM, self).__init__(env, policy, baseline, **kwargs)
 
