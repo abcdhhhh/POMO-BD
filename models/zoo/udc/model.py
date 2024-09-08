@@ -7,8 +7,7 @@ from rl4co.models.rl.common.base import RL4COLitModule
 from tensordict import TensorDict
 from einops import rearrange
 from rl4co.utils.ops import gather_by_index, unbatchify, batchify
-from .partition import partition_tsp, reconnect_tsp, reverse_aug
-from rl4co.utils.optim_helpers import create_optimizer, create_scheduler
+from .action_utils import get_action_utils
 
 from rl4co.utils.pylogger import get_pylogger
 
@@ -19,11 +18,12 @@ class UDC(RL4COLitModule):
         self,
         model_d: RL4COLitModule,    # divider
         model_r: RL4COLitModule,    # reviser
-        alpha: int,
-        beta: int,
+        alpha_train: int,
+        beta_train: int,
+        alpha_val: int,
+        beta_val: int,
         iters: int = 2,
         sub_norm: bool = True,
-        dirs: int = 2,
         w: float = 0.9,
         **kwargs,
     ):
@@ -34,11 +34,12 @@ class UDC(RL4COLitModule):
         )
         self.model_d = model_d
         self.model_r = model_r
-        self.alpha = alpha
-        self.beta = beta
+        self.alpha_train = alpha_train
+        self.beta_train = beta_train 
+        self.alpha_val = alpha_val 
+        self.beta_val = beta_val
         self.iters = iters
         self.sub_norm = sub_norm,
-        self.dirs = dirs
         self.w = w
 
         self.automatic_optimization = False # enable manual optimization
@@ -51,8 +52,6 @@ class UDC(RL4COLitModule):
 
         opt_d, sch_d = super().configure_optimizers(self.model_d.parameters())
         opt_r, sch_r = super().configure_optimizers(self.model_r.parameters())
-        # optim_conf = [opt_d, opt_r], [sch_d, sch_r]
-        # import pdb; pdb.set_trace()
         return opt_d + opt_r, [sch_d, sch_r]
     
     def infer(self, batch: TensorDict, phase_d: str, phase_r: str, ns_d: int, ns_r: int, **kwargs):
@@ -103,9 +102,9 @@ class UDC(RL4COLitModule):
     
     def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         if phase == "train":
-            out = self.infer(batch, phase, phase, self.alpha, self.beta)
+            out = self.infer(batch, phase, phase, self.alpha_train, self.beta_train)
         else:
-            out = self.infer(batch, phase, phase, self.alpha, 1)
+            out = self.infer(batch, phase, phase, self.alpha_val, self.beta_val)
         self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
 
     def revise(
@@ -118,10 +117,10 @@ class UDC(RL4COLitModule):
     ):
         device = td.device
 
+        action_utils = get_action_utils(self.model_d.policy.env_name)
+
         # Based on partition actions to get partitions
-        td_p, partition, tail = self.partition(td, actions, offset)
-        if self.dirs == 2:
-            td_p, partition = reverse_aug(td_p, partition)
+        td_p, partition, tail, forced_actions = action_utils.partition(td, actions, self.model_r.env.generator.num_loc, offset)
 
         # Batchify the sub_locs along the partitions
         batch_size, n_partitions, n_nodes = partition.shape
@@ -131,26 +130,33 @@ class UDC(RL4COLitModule):
         td.update(td_p)
 
         # Call reviser to solve the sub-routes and record the best
+        dirs = forced_actions.size(0) // (batch_size*n_partitions)
+        assert dirs in [1, 2]
+        assert num_starts % dirs == 0
+        forced_actions = batchify(forced_actions, num_starts // dirs)
+        
         out_r = self.model_r.forward(
             td.clone(), 
-            phase=phase, 
-            multisample=True, 
-            num_starts=num_starts,  
-            return_actions=True,
+            phase = phase, 
+            multisample = True, 
+            num_starts = num_starts,  
+            actions = forced_actions,
+            return_actions = True,
         )
         
         # get best actions
-        reward = unbatchify(out_r["reward"], num_starts * self.dirs)
-        actions = unbatchify(out_r["actions"], num_starts * self.dirs)
-        log_likelihood = unbatchify(out_r["log_likelihood"], num_starts * self.dirs)
+        reward = unbatchify(out_r["reward"], num_starts)
+        actions = unbatchify(out_r["actions"], num_starts)
+        actions = action_utils.process_partial(actions)
+        log_likelihood = unbatchify(out_r["log_likelihood"], num_starts)
         if phase == "train":
             out_r = self.model_r.calculate_loss(td, td, out_r, reward, log_likelihood)
         reward, max_idxs = reward.max(dim=1)  
 
         actions = gather_by_index(actions, max_idxs, dim=1)
-        if self.dirs == 2:
+        if dirs == 2:
             reverse_flag = max_idxs % 2 == 1
-            actions[reverse_flag] = torch.flip(n_nodes - 1 - actions[reverse_flag], [-1])
+            actions[reverse_flag] = torch.flip(actions[reverse_flag], [-1])
         log_likelihood = gather_by_index(log_likelihood, max_idxs, dim=1)
         
         loss = out_r.get("loss", None)
@@ -158,33 +164,15 @@ class UDC(RL4COLitModule):
         # Old reward
         best_revised_actions = torch.arange(n_nodes, device=device)[None, :].expand(batch_size*n_partitions, -1)
         best_revised_reward = self.model_r.env.get_reward(td, best_revised_actions)
-
-        # Restore reversed 
-        if self.dirs == 2:
-            batch_size = batch_size // self.dirs
-            assert torch.allclose(best_revised_reward[:batch_size*n_partitions], best_revised_reward[batch_size*n_partitions:])
-            best_revised_actions = best_revised_actions[:batch_size*n_partitions]
-            best_revised_reward = best_revised_reward[:batch_size*n_partitions]
-            partition = partition[:batch_size]
-
         # Replace with better reward
         improve_flag = reward > best_revised_reward
         best_revised_reward = torch.where(improve_flag, reward, best_revised_reward)
         best_revised_actions = torch.where(improve_flag.unsqueeze(1), actions, best_revised_actions)
+        
 
         # reconnect
         best_revised_actions = rearrange(best_revised_actions, "(b p) l -> b p l", b=batch_size, p=n_partitions)
         best_revised_actions = gather_by_index(partition, best_revised_actions, dim=-1)    
-        final_actions = self.reconnect(best_revised_actions, tail)
+        final_actions = action_utils.reconnect(best_revised_actions, tail)
         return final_actions, loss
-
-    def partition(self, td: TensorDict, actions: torch.Tensor, offset: int=0):
-        if self.model_d.policy.env_name == "tsp":
-            out, partition, tail = partition_tsp(td, actions, self.model_r.env.generator.num_loc, offset, self.sub_norm)
-        return out, partition, tail
-    
-    def reconnect(self, actions: torch.Tensor, tail: Optional[torch.Tensor]) -> torch.Tensor:
-        if self.model_d.policy.env_name == "tsp":
-            actions = reconnect_tsp(actions, tail)
-        return actions
         

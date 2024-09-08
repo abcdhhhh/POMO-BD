@@ -10,6 +10,7 @@ from rl4co.utils.decoding import (
     get_decoding_strategy,
     get_log_likelihood,
 )
+from utils.decoding import DecodingStrategyForced
 from rl4co.utils.ops import calculate_entropy
 from rl4co.models.common.constructive.autoregressive.policy import AutoregressivePolicy
 from .encoder import ICAMEncoder
@@ -132,26 +133,9 @@ class ICAMPolicy(AutoregressivePolicy):
         max_steps=1_000_000,
         **decoding_kwargs,
     ) -> dict:
-        """Forward pass of the policy.
-
-        Args:
-            td: TensorDict containing the environment state
-            env: Environment to use for decoding. If None, the environment is instantiated from `env_name`. Note that
-                it is more efficient to pass an already instantiated environment each time for fine-grained control
-            phase: Phase of the algorithm (train, val, test)
-            calc_reward: Whether to calculate the reward
-            return_actions: Whether to return the actions
-            return_entropy: Whether to return the entropy
-            return_hidden: Whether to return the hidden state
-            return_init_embeds: Whether to return the initial embeddings
-            return_sum_log_likelihood: Whether to return the sum of the log likelihood
-            actions: Actions to use for evaluating the policy.
-                If passed, use these actions instead of sampling from the policy to calculate log likelihood
-            max_steps: Maximum number of decoding steps for sanity check to avoid infinite loops if envs are buggy (i.e. do not reach `done`)
-            decoding_kwargs: Keyword arguments for the decoding strategy. See :class:`rl4co.utils.decoding.DecodingStrategy` for more information.
-
-        Returns:
-            out: Dictionary containing the reward, log likelihood, and optionally the actions and entropy
+        """
+        Support forced actions in first few steps
+        actions
         """
 
         # Encoder: get encoder output and initial embeddings from initial state
@@ -165,9 +149,7 @@ class ICAMPolicy(AutoregressivePolicy):
 
         # Get decode type depending on phase and whether actions are passed for evaluation
         decode_type = decoding_kwargs.pop("decode_type", None)
-        if actions is not None:
-            decode_type = "evaluate"
-        elif decode_type is None:
+        if decode_type is None:
             decode_type = getattr(self, f"{phase}_decode_type")
 
         # Setup decoding strategy
@@ -187,15 +169,16 @@ class ICAMPolicy(AutoregressivePolicy):
         # Additionally call a decoder hook if needed before main decoding
         td, env, hidden = self.decoder.pre_decoder_hook(td, env, hidden, num_starts)
 
+        forced_strategy = DecodingStrategyForced(decode_strategy)
         # Main decoding: loop until all sequences are done
         step = 0
         while not td["done"].all():
             logits, mask = self.decoder(td, hidden, num_starts)
-            td = decode_strategy.step(
+            td = forced_strategy.step(
                 logits,
                 mask,
                 td,
-                action=actions[..., step] if actions is not None else None,
+                action=actions[..., step] if (actions is not None and actions.size(-1) > step) else None,
             )
             td = env.step(td)["next"]
             step += 1

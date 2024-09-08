@@ -1,5 +1,5 @@
 # train/val/test
-mode: train
+mode: val
 env_name: tsp
 num_loc: 500
 embed_dim: 128
