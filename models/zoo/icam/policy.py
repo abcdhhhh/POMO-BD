@@ -63,9 +63,11 @@ class ICAMPolicy(AutoregressivePolicy):
                 num_heads=num_heads,
             )
 
-        if encoder is None:
+        if encoder in ["aaft", "gt"]:
             encoder = ICAMEncoder(
                 embed_dim=embed_dim,
+                n_heads = num_heads,
+                gt_type = encoder,
                 init_embedding=init_embedding,
                 env_name=env_name,
                 num_layers=num_encoder_layers,
@@ -88,7 +90,7 @@ class ICAMPolicy(AutoregressivePolicy):
                 moe_kwargs=moe_kwargs["encoder"],
             )
         
-        if decoder is None:
+        if decoder == "cab":
             decoder = ICAMDecoder(
                 embed_dim=embed_dim,
                 num_heads=num_heads,

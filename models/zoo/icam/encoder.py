@@ -9,7 +9,7 @@ from torch import Tensor
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive import AutoregressiveEncoder
 from rl4co.models.nn.env_embeddings import env_init_embedding
-from models.nn.graph.aaftnet import AAFTNetwork
+from models.nn.graph.attnnet import GTNetwork
 
 
 class ICAMEncoder(AutoregressiveEncoder):
@@ -32,6 +32,8 @@ class ICAMEncoder(AutoregressiveEncoder):
     def __init__(
         self,
         embed_dim: int = 128,
+        n_heads: int = 8,
+        gt_type: str = "aaft",
         init_embedding: nn.Module = None,
         env_name: str = "tsp",
         num_layers: int = 3,
@@ -53,12 +55,14 @@ class ICAMEncoder(AutoregressiveEncoder):
         )
 
         self.net = (
-            AAFTNetwork(
-                embed_dim,
-                num_layers,
-                normalization,
-                feedforward_hidden,
-                moe_kwargs=moe_kwargs,
+            GTNetwork(
+                num_layers = num_layers,
+                embed_dim = embed_dim,
+                n_heads = n_heads,
+                normalization = normalization,
+                feedforward_hidden = feedforward_hidden,
+                gt_type = gt_type,
+                moe_kwargs = moe_kwargs,
             )
             if net is None
             else net
@@ -82,8 +86,7 @@ class ICAMEncoder(AutoregressiveEncoder):
         init_h = self.init_embedding(td)
 
         locs = td["locs"]
-        n = locs.size(-2)
-        dist = torch.cdist(locs, locs, p=2) * torch.tensor(n).log2()
+        dist = torch.cdist(locs, locs, p=2)
 
         # Process embedding
         h = self.net(init_h, dist)

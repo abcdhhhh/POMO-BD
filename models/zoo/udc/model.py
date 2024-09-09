@@ -77,14 +77,21 @@ class UDC(REINFORCE):
         opt_r, sch_r = super().configure_optimizers(self.policy_r.parameters())
         return opt_d + opt_r, [sch_d, sch_r]
     
-    def on_train_epoch_start(self):
-        part_size = self.num_loc_r - 1
-        self.num_loc = torch.randint(self.num_loc_min // part_size, self.num_loc_max // part_size + 1, (1,)).item() * part_size
-    
     def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
         if phase == "train":
-            self.log_metrics({"num_loc": self.num_loc}, "train", dataloader_idx)
-            out = self.infer(batch, phase, phase, self.alpha_train, self.beta_train)
+            if self.env.name in ["tsp", "op", "pctsp"]:
+                part_size = self.num_loc_r - 1
+            elif self.env.name == "cvrp":
+                part_size = self.num_loc_r
+            assert self.num_loc_min % part_size == 0
+            assert self.num_loc_max % part_size == 0
+
+            if self.current_epoch < 50:
+                self.num_loc = self.num_loc_min
+                out = self.infer(batch, phase, phase, self.alpha_train * 2, self.beta_train)
+            else:
+                self.num_loc = torch.randint(self.num_loc_min // part_size, self.num_loc_max // part_size + 1, []).item() * part_size
+                out = self.infer(batch, phase, phase, self.alpha_train * 2, self.beta_train)
         else:
             out = self.infer(batch, phase, phase, self.alpha_val, self.beta_val)
         self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
@@ -111,7 +118,7 @@ class UDC(REINFORCE):
             elif i == 1:
                 offset = self.num_loc_r // 2
             else:
-                offset = torch.randint(0, self.num_loc_r, (1,)).item()
+                offset = torch.randint(0, self.num_loc_r, []).item()
             actions, loss = self.revise(
                 td = td,
                 actions = actions,

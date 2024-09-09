@@ -29,7 +29,7 @@ logger:
   tags: ["udc", "${env_name}"]
   group: "${env_name}${num_loc}"
   save_dir: ${save_dir}
-  name: udc-${env_name}${num_loc}-${env_r_name}${num_loc_r}-${model.w}
+  name: udc-${env_name}${num_loc}[${model.num_loc_min},${model.num_loc_max}]-${num_loc_r}-${model.w}-${model.policy_d_name}
 
 model:
   batch_size: 1
@@ -52,10 +52,10 @@ model:
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:
-    milestones: [480, 495]
+    milestones: []
     gamma: 0.1
   metrics:
-    train: ["loss", "loss_r0", "loss_r1", "reward", "max_reward", "num_loc"]
+    train: ["loss", "loss_r0", "loss_r1", "reward", "max_reward"]
     val: ["reward", "max_reward"]
     test: ${model.metrics.val}
     log_on_step: True
@@ -79,9 +79,10 @@ model:
     test_decode_type: ${model.policy_r_kwargs.val_decode_type}
     # set 'poly' for polynet attention, 'null' for simple attention
     pointer: null
-    # set 'am' for am, 'null' for icam
-    encoder: null
-    decoder: null
+    # choose from 'am', 'aaft', 'gt'
+    encoder: aaft
+    # choose from 'am', 'cab'
+    decoder: cab
     embed_dim: ${embed_dim}
     tanh_clipping: 50.
     num_encoder_layers: 6

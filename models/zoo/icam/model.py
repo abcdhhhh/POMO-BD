@@ -63,15 +63,13 @@ class ICAM(REINFORCE):
         self.num_loc_min = num_loc_min
         self.num_loc_max = num_loc_max
     
-    def on_train_epoch_start(self):
-        self.num_loc = torch.randint(self.num_loc_min, self.num_loc_max + 1, (1,)).item()
-
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
-        if phase == "train" and hasattr(self, "num_loc"):
+        if phase == "train":
+            self.num_loc = torch.randint(self.num_loc_min, self.num_loc_max + 1, []).item()
             n_start = self.num_loc
             td["action_mask"] = td["action_mask"][:, :self.num_loc]
             td["locs"] = td["locs"][:, :self.num_loc, :]
