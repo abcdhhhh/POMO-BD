@@ -14,8 +14,11 @@ def get_action_utils(env_name: str):
         raise NotImplementedError
 
 class ActionUtils:
+    """
+    Give some static-methods for divide-and-conquer actions
+    """
     @staticmethod
-    def partition(td: TensorDict, actions: torch.Tensor, n_nodes: int, offset: int=0, sub_norm: bool=True):
+    def partition(td: TensorDict, actions: torch.Tensor, num_loc_r: int, offset: int=0, sub_norm: bool=True):
         raise NotImplementedError
     
     @staticmethod
@@ -29,7 +32,7 @@ class ActionUtils:
 
 class TSPActionUtils(ActionUtils):
     @staticmethod
-    def partition(td: TensorDict, actions: torch.Tensor, n_nodes: int, offset: int=0, sub_norm: bool=True):
+    def partition(td: TensorDict, actions: torch.Tensor, num_loc_r: int, offset: int=0, sub_norm: bool=True):
         """
         Args:
             td [B]:
@@ -43,7 +46,7 @@ class TSPActionUtils(ActionUtils):
             forced_actions [2*B*p, 2]
         """
         batch_size, n_actions = actions.shape
-        n_edges = n_nodes - 1
+        n_edges = num_loc_r - 1
         n_partitions = n_actions // n_edges
         n_rest = n_actions % n_edges
         # Roll actions
@@ -52,6 +55,7 @@ class TSPActionUtils(ActionUtils):
         # Get partition and tail
         partition = actions[:, :n_actions-n_rest].reshape(-1, n_partitions, n_edges)    
         if n_rest:
+            assert False
             tail = actions[:, n_actions-n_rest:]
             last_node = actions[:, n_edges::n_edges, None]
         else:
@@ -61,7 +65,7 @@ class TSPActionUtils(ActionUtils):
 
         # Get the locations of the partitions
         locs = gather_by_index(td["locs"], partition.flatten(-2), dim=-2) # [B, p*n, 2]
-        locs = locs.reshape(-1, n_nodes, 2)
+        locs = locs.reshape(-1, num_loc_r, 2)
 
         # Normalize
         if sub_norm:
@@ -69,7 +73,7 @@ class TSPActionUtils(ActionUtils):
         td_p = TensorDict({"locs": locs})
         # 2 directions
         forced_actions = torch.tensor(
-                [[[n_nodes - 1, 0]], [[0, n_nodes - 1]]], 
+                [[[num_loc_r - 1, 0]], [[0, num_loc_r - 1]]], 
                 device=td.device,
             ).expand(2, batch_size * n_partitions, 2).flatten(0, 1)
 
@@ -102,7 +106,7 @@ class TSPActionUtils(ActionUtils):
 
 class CVRPActionUtils(ActionUtils):
     @staticmethod
-    def partition(td: TensorDict, actions: torch.Tensor, n_nodes: int, offset: int=0, sub_norm: bool=True): 
+    def partition(td: TensorDict, actions: torch.Tensor, num_loc_r: int, offset: int=0, sub_norm: bool=True): 
         """
         Args:
             td [B]:

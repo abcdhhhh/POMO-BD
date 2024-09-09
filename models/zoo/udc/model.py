@@ -33,7 +33,9 @@ class UDC(REINFORCE):
         iters: int = 2,
         sub_norm: bool = True,
         w: float = 1., 
-        baseline: str = "shared",    
+        baseline: str = "shared",  
+        num_loc_min: int = None,
+        num_loc_max: int = None,  
         **kwargs,
     ):
         super().__init__(
@@ -43,6 +45,7 @@ class UDC(REINFORCE):
             **kwargs,
         )
         self.env_r = env_r
+        self.num_loc_r = env_r.generator.num_loc
         self.policy_d = get_policy(
             policy_d_name, 
             env_name = env.name,
@@ -60,6 +63,8 @@ class UDC(REINFORCE):
         self.iters = iters
         self.sub_norm = sub_norm,
         self.w = w
+        self.num_loc_min = num_loc_min
+        self.num_loc_max = num_loc_max
         self.automatic_optimization = False # enable manual optimization
 
     def configure_optimizers(self, parameters=None):
@@ -72,8 +77,23 @@ class UDC(REINFORCE):
         opt_r, sch_r = super().configure_optimizers(self.policy_r.parameters())
         return opt_d + opt_r, [sch_d, sch_r]
     
+    def on_train_epoch_start(self):
+        part_size = self.num_loc_r - 1
+        self.num_loc = torch.randint(self.num_loc_min // part_size, self.num_loc_max // part_size + 1, (1,)).item() * part_size
+    
+    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
+        if phase == "train":
+            self.log_metrics({"num_loc": self.num_loc}, "train", dataloader_idx)
+            out = self.infer(batch, phase, phase, self.alpha_train, self.beta_train)
+        else:
+            out = self.infer(batch, phase, phase, self.alpha_val, self.beta_val)
+        self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
+    
     def infer(self, batch: TensorDict, phase_d: str, phase_r: str, ns_d: int, ns_r: int, **kwargs):
         td = self.env.reset(batch)
+        if "train" in [phase_d, phase_r] and hasattr(self, "num_loc"):
+            td["action_mask"] = td["action_mask"][:, :self.num_loc]
+            td["locs"] = td["locs"][:, :self.num_loc, :]
         out_d = self.policy_d.forward(
             td.clone(), 
             env=self.env, 
@@ -89,9 +109,9 @@ class UDC(REINFORCE):
             if i == 0:
                 offset = 0
             elif i == 1:
-                offset = self.env_r.generator.num_loc // 2
+                offset = self.num_loc_r // 2
             else:
-                offset = torch.randint(0, self.env_r.generator.num_loc, (1,)).item()
+                offset = torch.randint(0, self.num_loc_r, (1,)).item()
             actions, loss = self.revise(
                 td = td,
                 actions = actions,
@@ -122,13 +142,6 @@ class UDC(REINFORCE):
             max_reward, max_idxs = reward.max(dim=-1)
             out_d.update({"max_reward": max_reward})
         return out_d
-    
-    def shared_step(self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None):
-        if phase == "train":
-            out = self.infer(batch, phase, phase, self.alpha_train, self.beta_train)
-        else:
-            out = self.infer(batch, phase, phase, self.alpha_val, self.beta_val)
-        self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
 
     def revise(
         self, 
@@ -143,7 +156,7 @@ class UDC(REINFORCE):
         action_utils = get_action_utils(self.env.name)
 
         # Based on partition actions to get partitions
-        td_p, partition, tail, forced_actions = action_utils.partition(td, actions, self.env_r.generator.num_loc, offset)   
+        td_p, partition, tail, forced_actions = action_utils.partition(td, actions, self.num_loc_r, offset)   
         
         # Batchify the forced_actions according to num_starts
         batch_size, n_partitions, n_nodes = partition.shape

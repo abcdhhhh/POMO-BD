@@ -23,7 +23,7 @@ class ICAMPolicy(AutoregressivePolicy):
     def __init__(
             self,
             encoder: Union[str, nn.Module] = None,
-            decoder: nn.Module = None, 
+            decoder: Union[str, nn.Module] = None, 
             embed_dim: int = 128,
             num_heads: int = 8,
             num_encoder_layers: int = 6,
@@ -104,6 +104,23 @@ class ICAMPolicy(AutoregressivePolicy):
                 pointer=pointer,
                 moe_kwargs=moe_kwargs["decoder"],
             )
+        elif decoder == "am":
+            from rl4co.models.zoo.am.decoder import AttentionModelDecoder
+            decoder = AttentionModelDecoder(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                env_name=env_name,
+                context_embedding=context_embedding,
+                dynamic_embedding=dynamic_embedding,
+                mask_inner=mask_inner,
+                out_bias_pointer_attn=out_bias_pointer_attn,
+                linear_bias=linear_bias_decoder,
+                use_graph_context=use_graph_context,
+                check_nan=check_nan,
+                sdpa_fn=sdpa_fn_decoder,
+                pointer=pointer,
+                moe_kwargs=moe_kwargs["decoder"],
+            )
 
         super(ICAMPolicy, self).__init__(
             encoder=encoder,
@@ -135,7 +152,6 @@ class ICAMPolicy(AutoregressivePolicy):
     ) -> dict:
         """
         Support forced actions in first few steps
-        actions
         """
 
         # Encoder: get encoder output and initial embeddings from initial state

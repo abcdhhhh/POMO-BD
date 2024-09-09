@@ -1,5 +1,5 @@
 # train/val/test
-mode: val
+mode: train
 env_name: tsp
 num_loc: 500
 embed_dim: 128
@@ -21,13 +21,15 @@ logger:
   tags: ["icam", "${env_name}"]
   group: "${env_name}${num_loc}"
   save_dir: ${save_dir}
-  name: icam-${env_name}${num_loc}-${model.num_starts}-${model.policy_kwargs.num_encoder_layers}
+  name: icam-${env_name}${num_loc}[${model.num_loc_min},${model.num_loc_max}]
 
 model:
-  batch_size: 8
+  batch_size: 128
   val_batch_size: 32
-  train_data_size: 8_000
+  train_data_size: 128_000
   val_data_size: 128
+  num_loc_min: 100
+  num_loc_max: 100
   # During val/test only we apply dihedral transformations
   num_augment: 1
   elite_k: 1
@@ -42,8 +44,9 @@ model:
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # set 'poly' for polynet attention, 'null' for simple attention
     pointer: null
-    # set 'am' for am encoder, 'null' for icam encoder
+    # set 'am' for am, 'null' for icam
     encoder: null
+    decoder: null
     embed_dim: ${embed_dim}
     tanh_clipping: 50.
     num_encoder_layers: 12
@@ -54,19 +57,19 @@ model:
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:
-    milestones: [480, 495]
+    milestones: []
     gamma: 0.1
   metrics:
-    train: ["loss", "reward", "max_reward"]
+    train: ["loss", "reward", "max_reward", "num_loc"]
     val: ["reward", "max_reward", "max_aug_reward"]
     test: ${model.metrics.val}
     log_on_step: True
 
 trainer:
-  max_epochs: 500
+  max_epochs: 250
   precision: 32-true # icam is sensitive to precision, especially icam encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: null
+  logger: wandb
   default_root_dir: ${save_dir}
 
 seed: 1234

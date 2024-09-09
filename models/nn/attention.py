@@ -43,4 +43,3 @@ class AAFT(nn.Module):
         
         return self.out_proj(out)
         
-    

@@ -29,6 +29,8 @@ class ICAM(REINFORCE):
         num_starts: int = None,
         elite_k: int = 1,
         elite_alpha: float = 0.,
+        num_loc_min: int = None,
+        num_loc_max: int = None,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
@@ -41,9 +43,6 @@ class ICAM(REINFORCE):
             }
             policy_kwargs_with_defaults.update(policy_kwargs)
             policy = ICAMPolicy(env_name=env.name, **policy_kwargs_with_defaults)
-        elif policy == "dgnn":
-            from models.zoo.dgnn.policy import DGNNPolicy
-            policy = DGNNPolicy(env_name=env.name)
 
         super(ICAM, self).__init__(env, policy, baseline, **kwargs)
 
@@ -61,12 +60,22 @@ class ICAM(REINFORCE):
 
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
+        self.num_loc_min = num_loc_min
+        self.num_loc_max = num_loc_max
+    
+    def on_train_epoch_start(self):
+        self.num_loc = torch.randint(self.num_loc_min, self.num_loc_max + 1, (1,)).item()
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
+        if phase == "train" and hasattr(self, "num_loc"):
+            n_start = self.num_loc
+            td["action_mask"] = td["action_mask"][:, :self.num_loc]
+            td["locs"] = td["locs"][:, :self.num_loc, :]
+            self.log_metrics({"num_loc": self.num_loc}, "train", dataloader_idx)
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
 
         # During training, we do not augment the data

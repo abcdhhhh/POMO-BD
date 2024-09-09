@@ -17,26 +17,11 @@ def run(cfg: DictConfig):
     L.seed_everything(cfg.get("seed", 1234))
 
     env_params = cfg.env
-    model_params_dict = OmegaConf.to_container(cfg.model, resolve=True)
-    if env_params.env_name == "shpp":
-        from envs.routing.shpp.env import SHPPEnv
-        from models.nn.env_embeddings.init import SHPPInitEmbedding
-        from models.nn.env_embeddings.context import SHPPContext
-        from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
-        del env_params.env_name
-        env = SHPPEnv(**env_params)
-        
-        model_params_dict['policy_kwargs'].update({
-            "init_embedding": SHPPInitEmbedding(embed_dim=cfg.embed_dim),
-            "context_embedding": SHPPContext(embed_dim=cfg.embed_dim),
-            "dynamic_embedding": StaticEmbedding(),
-        })
-    else:
-        env = get_env(**env_params)
+    env = get_env(**env_params)
 
     model = ICAM(
         env=env,
-        **model_params_dict,
+        **cfg.model,
     )
     if cfg.ckpt_path:
         ckpt_state_dict = torch.load(cfg.ckpt_path)['state_dict']

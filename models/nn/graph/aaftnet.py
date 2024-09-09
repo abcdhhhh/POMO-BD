@@ -6,7 +6,7 @@ from torch import Tensor
 
 from rl4co.models.nn.mlp import MLP
 from rl4co.models.nn.moe import MoE
-from models.nn.aaft import AAFT
+from models.nn.attention import AAFT
 from rl4co.models.nn.ops import Normalization, SkipConnection
 from rl4co.utils.pylogger import get_pylogger
 
