@@ -86,12 +86,12 @@ class UDC(REINFORCE):
             assert self.num_loc_min % part_size == 0
             assert self.num_loc_max % part_size == 0
 
-            if self.current_epoch < 50:
+            if self.env.name == "tsp" and self.current_epoch < 0:
                 self.num_loc = self.num_loc_min
                 out = self.infer(batch, phase, phase, self.alpha_train * 2, self.beta_train)
             else:
                 self.num_loc = torch.randint(self.num_loc_min // part_size, self.num_loc_max // part_size + 1, []).item() * part_size
-                out = self.infer(batch, phase, phase, self.alpha_train * 2, self.beta_train)
+                out = self.infer(batch, phase, phase, self.alpha_train, self.beta_train)
         else:
             out = self.infer(batch, phase, phase, self.alpha_val, self.beta_val)
         self.log_metrics(out, phase, dataloader_idx=dataloader_idx)

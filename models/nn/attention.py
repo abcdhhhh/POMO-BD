@@ -4,6 +4,40 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
+def scaled_dot_product_graph_attention_simple(
+    q, k, v, e1, e2, attn_mask=None, dropout_p=0.0, is_causal=False
+):
+    # Check for causal and attn_mask conflict
+    if is_causal and attn_mask is not None:
+        raise ValueError("Cannot set both is_causal and attn_mask")
+
+    # Calculate scaled dot product
+    scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)
+    scores = scores + e1
+
+    # Apply the provided attention mask
+    if attn_mask is not None:
+        if attn_mask.dtype == torch.bool:
+            scores.masked_fill_(~attn_mask, float("-inf"))
+        else:
+            scores += attn_mask
+
+    # Apply causal mask
+    if is_causal:
+        s, l_ = scores.size(-2), scores.size(-1)
+        mask = torch.triu(torch.ones((s, l_), device=scores.device), diagonal=1)
+        scores.masked_fill_(mask.bool(), float("-inf"))
+
+    # Softmax to get attention weights
+    attn_weights = F.softmax(scores, dim=-1)
+    attn_weights = attn_weights * e2
+
+    # Apply dropout
+    if dropout_p > 0.0:
+        attn_weights = F.dropout(attn_weights, p=dropout_p)
+
+    # Compute the weighted sum of values
+    return torch.matmul(attn_weights, v)
 
 class AAFTAttention(nn.Module):
     """ 
@@ -51,35 +85,39 @@ class GTAttention(nn.Module):
     def __init__(
         self,
         embed_dim: int,
-        n_heads: int,
+        num_heads: int,
         bias: bool = True,
+        attention_dropout: float = 0.0,
+        causal: bool = False,
         device: str = None,
         dtype: torch.dtype = None,
     ):
         super().__init__()
-        self.n_heads = n_heads
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.causal = causal
+        self.attention_dropout = attention_dropout
+        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
+
         factory_kwargs = {"device": device, "dtype": dtype}
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
-        self.We = nn.Linear(1, 2 * n_heads, bias=bias, **factory_kwargs)
+        self.We = nn.Linear(1, 2 * num_heads, bias=bias, **factory_kwargs)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
     
-    def forward(self, x: torch.Tensor, dist: torch.Tensor):
+    def forward(self, x: torch.Tensor, dist: torch.Tensor, attn_mask=None):
         """
         x: (batch, seqlen, hidden_dim)
         dist: (batch, seqlen, seqlen)
         """
         q, k, v = rearrange(
-            self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.n_heads,
+            self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads,
         ).unbind(dim=0)
         e1, e2 = rearrange(
             self.We(dist.unsqueeze(-1)), "b s1 s2 (two h) -> two b h s1 s2", two=2
         ).unbind(dim=0)
 
-        scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)
-        scores = scores + e1
-        scores = F.softmax(scores, dim=-1)
-        scores = scores * e2
-
-        out = torch.matmul(scores, v)
+        out = scaled_dot_product_graph_attention_simple(
+            q, k, v, e1, e2, attn_mask=attn_mask
+        )
         
         return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))      

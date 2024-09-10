@@ -17,7 +17,7 @@ class GTLayer(nn.Module):
     def __init__(
         self,
         embed_dim: int,
-        n_heads: int = 8,
+        num_heads: int = 8,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
         bias: bool = True,
@@ -32,7 +32,7 @@ class GTLayer(nn.Module):
             ffn = MLP(input_dim=embed_dim, output_dim=embed_dim, num_neurons=num_neurons, hidden_act="ReLU")
         
         if gt_type == "gt":
-            self.gt = GTAttention(embed_dim=embed_dim, n_heads=n_heads, bias=bias)
+            self.gt = GTAttention(embed_dim=embed_dim, num_heads=num_heads, bias=bias)
         elif gt_type == "aaft":
             self.gt = AAFTAttention(embed_dim=embed_dim, bias=bias)
         
@@ -53,7 +53,7 @@ class GTNetwork(nn.Module):
         self,
         num_layers: int,
         embed_dim: int,
-        n_heads: int = 8,
+        num_heads: int = 8,
         normalization: str = "batch",
         feedforward_hidden: int = 512,
         gt_type: str = "gt",
@@ -65,7 +65,7 @@ class GTNetwork(nn.Module):
             (
                 GTLayer(
                     embed_dim=embed_dim,
-                    n_heads=n_heads,
+                    num_heads=num_heads,
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
                     gt_type = gt_type,

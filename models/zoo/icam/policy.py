@@ -66,10 +66,10 @@ class ICAMPolicy(AutoregressivePolicy):
         if encoder in ["aaft", "gt"]:
             encoder = ICAMEncoder(
                 embed_dim=embed_dim,
-                n_heads = num_heads,
-                gt_type = encoder,
+                gt_type=encoder,
                 init_embedding=init_embedding,
                 env_name=env_name,
+                num_heads=num_heads,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
                 feedforward_hidden=feedforward_hidden,

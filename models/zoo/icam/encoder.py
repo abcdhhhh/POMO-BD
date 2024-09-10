@@ -32,10 +32,10 @@ class ICAMEncoder(AutoregressiveEncoder):
     def __init__(
         self,
         embed_dim: int = 128,
-        n_heads: int = 8,
         gt_type: str = "aaft",
         init_embedding: nn.Module = None,
         env_name: str = "tsp",
+        num_heads: int = 8,
         num_layers: int = 3,
         normalization: str = "instance",
         feedforward_hidden: int = 512,
@@ -58,7 +58,7 @@ class ICAMEncoder(AutoregressiveEncoder):
             GTNetwork(
                 num_layers = num_layers,
                 embed_dim = embed_dim,
-                n_heads = n_heads,
+                num_heads = num_heads,
                 normalization = normalization,
                 feedforward_hidden = feedforward_hidden,
                 gt_type = gt_type,
