@@ -29,13 +29,15 @@ logger:
   tags: ["udc", "${env_name}"]
   group: "${env_name}${num_loc}"
   save_dir: ${save_dir}
-  name: ${model.policy_d_name}-${model.policy_r_name}-${env_name}${num_loc}[${model.num_loc_min},${model.num_loc_max}]${num_loc_r}-${model.policy_r_kwargs.encoder}-${model.policy_r_kwargs.decoder}-${model.w}
+  name: ${model.policy_d_name}-${model.policy_r_name}-${env_name}${num_loc}[${model.num_loc_min},${model.num_loc_max}]${num_loc_r}-${model.policy_r_kwargs.encoder}-${model.policy_r_kwargs.decoder}-${model.w}-warmup
 
 model:
   batch_size: 1
   val_batch_size: 8
+  test_batch_size: ${model.val_batch_size}
   train_data_size: 1000
   val_data_size: 128
+  test_data_size: ${model.val_data_size}
   num_loc_min: 500
   num_loc_max: 1000
   alpha_train: 40
@@ -60,7 +62,7 @@ model:
     test: ${model.metrics.val}
     log_on_step: True
 
-  policy_d_name: icam
+  policy_d_name: dgnn
   policy_d_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: multistart_sampling
@@ -68,20 +70,20 @@ model:
     val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_d_kwargs.val_decode_type}
 
-    # num_layers_heatmap_generator: 5
-    # num_layers_graph_encoder: 12
-    # k_sparse: 100
+    num_layers_heatmap_generator: 5
+    num_layers_graph_encoder: 12
+    k_sparse: 100
 
-    # set 'poly' for polynet attention, 'null' for simple attention
-    pointer: null
-    # choose from 'am', 'aaft', 'gt'
-    encoder: am
-    # choose from 'am', 'cab'
-    decoder: cab
-    embed_dim: ${embed_dim}
-    tanh_clipping: 50.
-    num_encoder_layers: 6
-    normalization: instance
+    # # set 'poly' for polynet attention, 'null' for simple attention
+    # pointer: null
+    # # choose from 'am', 'aaft', 'gt'
+    # encoder: am
+    # # choose from 'am', 'cab'
+    # decoder: cab
+    # embed_dim: ${embed_dim}
+    # tanh_clipping: 50.
+    # num_encoder_layers: 6
+    # normalization: instance
     
   policy_r_name: icam
   policy_r_kwargs:

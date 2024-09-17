@@ -37,7 +37,7 @@ class DGNNPolicy(NonAutoregressivePolicy):
         edge_embedding: Optional[nn.Module] = None,
         graph_network: Optional[nn.Module] = None,
         heatmap_generator: Optional[nn.Module] = None,
-        num_layers_heatmap_generator: int = 3,
+        num_layers_heatmap_generator: int = 5,
         num_layers_graph_encoder: int = 12,
         act_fn="silu",
         agg_fn="mean",
@@ -49,7 +49,7 @@ class DGNNPolicy(NonAutoregressivePolicy):
         **constructive_policy_kw,
     ):
         if len(constructive_policy_kw) > 0:
-            log.warn(f"Unused kwargs: {constructive_policy_kw}")
+            log.warning(f"Unused kwargs: {constructive_policy_kw}")
 
         if encoder is None:
             encoder = NARGNNEncoder(

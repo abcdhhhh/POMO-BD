@@ -29,15 +29,13 @@ class ICAM(REINFORCE):
         num_starts: int = None,
         elite_k: int = 1,
         elite_alpha: float = 0.,
-        num_loc_min: int = None,
-        num_loc_max: int = None,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
 
         if policy is None:
             policy_kwargs_with_defaults = {
-                "num_encoder_layers": 6,
+                "num_encoder_layers": 12,
                 "normalization": "instance",
                 "use_graph_context": False,
             }
@@ -60,8 +58,6 @@ class ICAM(REINFORCE):
 
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
-        self.num_loc_min = num_loc_min
-        self.num_loc_max = num_loc_max
     
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
@@ -69,11 +65,33 @@ class ICAM(REINFORCE):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
         if phase == "train":
-            self.num_loc = torch.randint(self.num_loc_min, self.num_loc_max + 1, []).item()
-            n_start = self.num_loc
-            td["action_mask"] = td["action_mask"][:, :self.num_loc]
-            td["locs"] = td["locs"][:, :self.num_loc, :]
-            self.log_metrics({"num_loc": self.num_loc}, "train", dataloader_idx)
+            if self.env.name == "tsp":
+                if self.current_epoch < 100:
+                    num_loc = 100
+                    batch_size = 256
+                else:
+                    num_loc = torch.randint(100, 501, []).item()
+                    batch_size = 1_600_000 // num_loc ** 2
+                n_start = num_loc
+                td = td[:batch_size]
+                td["action_mask"] = td["action_mask"][:, :num_loc]
+                td["locs"] = td["locs"][:, :num_loc, :]
+            elif self.env.name == "cvrp":
+                if self.current_epoch < 100:
+                    num_loc = 100
+                    capacity = 50
+                    batch_size = 128
+                else:
+                    num_loc = torch.randint(100, 501, []).item()
+                    capacity = torch.randint(50, 101, []).item()
+                    batch_size = 1_280_000 // num_loc ** 2
+                n_start = num_loc
+                td = td[:batch_size]
+                td["action_mask"] = td["action_mask"][:, :num_loc+1]
+                td["demand"] = td["demand"][:, :num_loc] * td["capacity"] / capacity
+                td["capacity"].fill_(capacity)
+                td["locs"] = td["locs"][:, :num_loc+1, :]
+                td["visited"] = td["visited"][:, :num_loc+1]
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
 
         # During training, we do not augment the data

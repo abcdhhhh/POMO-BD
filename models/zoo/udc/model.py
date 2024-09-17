@@ -86,7 +86,7 @@ class UDC(REINFORCE):
             assert self.num_loc_min % part_size == 0
             assert self.num_loc_max % part_size == 0
 
-            if self.env.name == "tsp" and self.current_epoch < 0:
+            if self.env.name == "tsp" and self.current_epoch < 50:
                 self.num_loc = self.num_loc_min
                 out = self.infer(batch, phase, phase, self.alpha_train * 2, self.beta_train)
             else:
@@ -189,8 +189,8 @@ class UDC(REINFORCE):
         reward = unbatchify(out_r["reward"], num_starts)
         actions = unbatchify(out_r["actions"], num_starts)
         actions = action_utils.process_partial(actions)
-        log_likelihood = unbatchify(out_r["log_likelihood"], num_starts)
         if phase == "train":
+            log_likelihood = unbatchify(out_r["log_likelihood"], num_starts)
             out_r = self.calculate_loss(td, td, out_r, reward, log_likelihood)
 
         # get best actions
@@ -199,7 +199,6 @@ class UDC(REINFORCE):
         if dirs == 2:
             reverse_flag = max_idxs % 2 == 1
             actions[reverse_flag] = torch.flip(actions[reverse_flag], [-1])
-        log_likelihood = gather_by_index(log_likelihood, max_idxs, dim=1)
         
         loss = out_r.get("loss", None)
 
