@@ -65,6 +65,7 @@ class ICAM(REINFORCE):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
         if phase == "train":
+            # downsample td for curriculum training
             if self.env.name == "tsp":
                 if self.current_epoch < 100:
                     num_loc = 100
@@ -91,6 +92,40 @@ class ICAM(REINFORCE):
                 td["demand"] = td["demand"][:, :num_loc] * td["capacity"] / capacity
                 td["capacity"].fill_(capacity)
                 td["locs"] = td["locs"][:, :num_loc+1, :]
+                td["visited"] = td["visited"][:, :num_loc+1]
+            elif self.env.name == "op":
+                if self.current_epoch < 100:
+                    num_loc = 100
+                    batch_size = 256
+                else:
+                    num_loc = torch.randint(100, 501, []).item()
+                    batch_size = 1_600_000 // num_loc ** 2
+                n_start = num_loc
+                td = td[:batch_size]
+                td["action_mask"] = td["action_mask"][:, :num_loc+1]
+                td["locs"] = td["locs"][:, :num_loc+1, :]
+                td["max_length"] = td["max_length"][:, :num_loc+1]
+                td["prize"] = td["prize"][:, :num_loc+1]
+                td["visited"] = td["visited"][:, :num_loc+1]
+            elif self.env.name in ["pctsp", "spctsp"]:
+                if self.current_epoch < 100:
+                    num_loc = 100
+                    penalty_factor = 4
+                    batch_size = 256
+                else:
+                    num_loc = torch.randint(100, 501, []).item()
+                    penalty_factor = torch.randint(4, 10, []).item()
+                    batch_size = 1_600_000 // num_loc ** 2
+                n_start = num_loc
+                td = td[:batch_size]
+                td["action_mask"] = td["action_mask"][:, :num_loc+1]
+                td["deterministic_prize"] = td["deterministic_prize"][:, :num_loc] * 500 / num_loc
+                td["expected_prize"] = td["expected_prize"][:, :num_loc] * 500 / num_loc
+                td["locs"] = td["locs"][:, :num_loc+1, :]
+                td["penalty"] = td["penalty"][:, :num_loc+1] * 500 / num_loc * penalty_factor / 9
+                td["cur_total_penalty"] = td["penalty"].sum(-1)
+                td["real_prize"] = td["real_prize"][:, :num_loc+1] * 500 / num_loc
+                td["stochastic_prize"] = td["stochastic_prize"][:, :num_loc] * 500 / num_loc
                 td["visited"] = td["visited"][:, :num_loc+1]
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
 
