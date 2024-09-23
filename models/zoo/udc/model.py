@@ -26,7 +26,7 @@ class UDC(REINFORCE):
         policy_r_name: str,    # reviser
         policy_d_kwargs = {},
         policy_r_kwargs = {},
-        alpha_train: int = 80,
+        alpha_train: int = 40,
         beta_train: int = 50,
         alpha_val: int = 50,
         beta_val: int = 2,

@@ -88,7 +88,7 @@ class ICAMDecoder(AttentionModelDecoder):
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
         n = locs.size(-2)
-        bias = self.alpha * torch.cdist(locs, locs, p=2) * torch.tensor(n).log2()
+        bias = self.alpha * torch.tensor(n).log2() * torch.cdist(locs, locs, p=2)
 
         # Organize in a dataclass for easy access
         return BiasCache(

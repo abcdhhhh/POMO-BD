@@ -56,6 +56,7 @@ class AAFTAttention(nn.Module):
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
         self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
         self.alpha = nn.Parameter(torch.tensor(1.))
+        self.beta = nn.Parameter(torch.tensor(0.))
     
     def forward(self, x: torch.Tensor, dist: torch.Tensor):
         """
@@ -67,12 +68,12 @@ class AAFTAttention(nn.Module):
         ).unbind(dim=0)
         q = F.sigmoid(q)
         k = torch.exp(k - torch.max(k, dim=1, keepdim=True)[0])
-        w = -self.alpha * dist * torch.tensor(x.size(1)).log2()
+        w = -self.alpha * torch.tensor(x.size(1)).log2() * dist + self.beta * torch.eye(x.size(1), device=x.device)
         w = torch.exp(w - torch.max(w, dim=2, keepdim=True)[0])
         wkv = torch.einsum('bij, bjd -> bid', w, k*v)
         wk = torch.einsum('bij, bjd -> bid', w, k)
-        out = q * wkv / (wk + 1e-8)
-
+        wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
+        out = q * wkv / wk
         assert not torch.isnan(out).any()
         
         return self.out_proj(out)
@@ -93,11 +94,10 @@ class GTAttention(nn.Module):
         dtype: torch.dtype = None,
     ):
         super().__init__()
-        self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.causal = causal
         self.attention_dropout = attention_dropout
-        assert self.embed_dim % num_heads == 0, "self.kdim must be divisible by num_heads"
+        assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
 
         factory_kwargs = {"device": device, "dtype": dtype}
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
@@ -113,11 +113,11 @@ class GTAttention(nn.Module):
             self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads,
         ).unbind(dim=0)
         e1, e2 = rearrange(
-            self.We(dist.unsqueeze(-1)), "b s1 s2 (two h) -> two b h s1 s2", two=2
+            self.We(dist.unsqueeze(-1)), "b i j (two h) -> two b h i j", two=2
         ).unbind(dim=0)
 
         out = scaled_dot_product_graph_attention_simple(
-            q, k, v, e1, e2, attn_mask=attn_mask
+            q, k, v, e1, e2, attn_mask=attn_mask, dropout_p=self.attention_dropout, is_causal=self.causal,
         )
         
         return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))      

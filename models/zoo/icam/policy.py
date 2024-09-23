@@ -63,7 +63,7 @@ class ICAMPolicy(AutoregressivePolicy):
                 num_heads=num_heads,
             )
 
-        if encoder in ["aaft", "gt"]:
+        if encoder in ["aaft", "gt", "rwkv"]:
             encoder = ICAMEncoder(
                 embed_dim=embed_dim,
                 gt_type=encoder,

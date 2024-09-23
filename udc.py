@@ -25,7 +25,7 @@ def run(cfg: DictConfig):
     )
     
     if cfg.ckpt_path:
-        ckpt_state_dict = torch.load(cfg.ckpt_path)['state_dict']
+        ckpt_state_dict = torch.load(cfg.ckpt_path, weights_only=False)['state_dict']
         model.load_state_dict(ckpt_state_dict)
 
     checkpoint_callback = ModelCheckpoint(
