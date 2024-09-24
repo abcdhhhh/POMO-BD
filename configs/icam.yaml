@@ -27,7 +27,7 @@ logger:
   tags: ["icam", "${env_name}"]
   group: "${env_name}${num_loc}"
   save_dir: ${save_dir}
-  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${env_name}${num_loc}-${trainer.precision}-curriculum
+  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${env_name}${num_loc}-${trainer.precision}
 
 model:
   batch_size: 256

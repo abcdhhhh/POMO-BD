@@ -39,45 +39,6 @@ def scaled_dot_product_graph_attention_simple(
     # Compute the weighted sum of values
     return torch.matmul(attn_weights, v)
 
-class AAFTAttention(nn.Module):
-    """ 
-    following ICAM (https://arxiv.org/abs/2405.01906) and AFT-full (https://arxiv.org/abs/2105.14103)
-    inputs include a distance matrix
-    """
-    def __init__(
-        self,
-        embed_dim: int,
-        bias: bool = True,
-        device: str = None,
-        dtype: torch.dtype = None,
-    ):
-        super().__init__()
-        factory_kwargs = {"device": device, "dtype": dtype}
-        self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
-        self.alpha = nn.Parameter(torch.tensor(1.))
-        self.beta = nn.Parameter(torch.tensor(0.))
-    
-    def forward(self, x: torch.Tensor, dist: torch.Tensor):
-        """
-        x: (batch, seqlen, hidden_dim)
-        dist: (batch, seqlen, seqlen)
-        """
-        q, k, v = rearrange(
-            self.Wqkv(x), "b s (three d) -> three b s d", three=3
-        ).unbind(dim=0)
-        q = F.sigmoid(q)
-        k = torch.exp(k - torch.max(k, dim=1, keepdim=True)[0])
-        w = -self.alpha * torch.tensor(x.size(1)).log2() * dist + self.beta * torch.eye(x.size(1), device=x.device)
-        w = torch.exp(w - torch.max(w, dim=2, keepdim=True)[0])
-        wkv = torch.einsum('bij, bjd -> bid', w, k*v)
-        wk = torch.einsum('bij, bjd -> bid', w, k)
-        wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        out = q * wkv / wk
-        assert not torch.isnan(out).any()
-        
-        return self.out_proj(out)
-        
 class GTAttention(nn.Module):
     """ 
     following MARCO (https://arxiv.org/abs/2408.02207) and GT (https://arxiv.org/abs/2012.09699)
@@ -119,5 +80,46 @@ class GTAttention(nn.Module):
         out = scaled_dot_product_graph_attention_simple(
             q, k, v, e1, e2, attn_mask=attn_mask, dropout_p=self.attention_dropout, is_causal=self.causal,
         )
+
+        return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))  
+
+
+class AAFTAttention(nn.Module):
+    """ 
+    following ICAM (https://arxiv.org/abs/2405.01906) and AFT-full (https://arxiv.org/abs/2105.14103)
+    inputs include a distance matrix
+    """
+    def __init__(
+        self,
+        embed_dim: int,
+        bias: bool = True,
+        device: str = None,
+        dtype: torch.dtype = None,
+    ):
+        super().__init__()
+
+        factory_kwargs = {"device": device, "dtype": dtype}
+        self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
+        self.alpha = nn.Parameter(torch.tensor(1.))
+        self.beta = nn.Parameter(torch.tensor(0.))
+    
+    def forward(self, x: torch.Tensor, dist: torch.Tensor):
+        """
+        x: (batch, seqlen, hidden_dim)
+        dist: (batch, seqlen, seqlen)
+        """
+        q, k, v = rearrange(
+            self.Wqkv(x), "b s (three d) -> three b s d", three=3,
+        ).unbind(dim=0)
+        q = F.sigmoid(q)
+        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
+        w = -self.alpha * torch.tensor(x.size(1)).log2() * dist + self.beta * torch.eye(x.size(1), device=x.device)
+        w = torch.exp(w - torch.max(w, dim=-1, keepdim=True)[0])
+        wkv = torch.einsum('b i j, b j d -> b i d', w, k*v)
+        wk = torch.einsum('b i j, b j d -> b i d', w, k)
+        wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
+        out = q * wkv / wk
+        assert not torch.isnan(out).any()
         
-        return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))      
+        return self.out_proj(out)

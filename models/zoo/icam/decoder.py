@@ -12,7 +12,7 @@ from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.utils.ops import batchify, unbatchify
+from rl4co.utils.ops import batchify, unbatchify, gather_by_index
 
 log = get_pylogger(__name__)
 
@@ -128,22 +128,12 @@ class ICAMDecoder(AttentionModelDecoder):
         glimpse_q = self._compute_q(cached, td)
         glimpse_k, glimpse_v, logit_k = self._compute_kvl(cached, td)
 
+        bias = gather_by_index(cached.bias, td["current_node"])
+
         # Compute logits
         mask = td["action_mask"]
         logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
 
-        n = cached.bias.size(-1)
-        b = cached.bias.size(0)
-        current_node = td["current_node"]
-        if num_starts > 1:
-            if len(current_node.shape) == 3:
-                current_node = current_node.squeeze(-1)
-            current_node = current_node[..., None].expand(*current_node.size(), n)
-            bias = torch.gather(cached.bias, dim=-2, index=current_node)
-        else:
-            if len(current_node.shape) == 2:
-                current_node = current_node.squeeze(-1)
-            bias = cached.bias[torch.arange(b), current_node]
         logits = logits - bias
 
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
