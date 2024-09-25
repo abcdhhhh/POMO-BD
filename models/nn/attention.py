@@ -4,6 +4,18 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
+from torch.nn.functional import scaled_dot_product_attention
+import math
+
+def esf_sdpa(
+    q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False,
+):
+    """
+    following ESF (https://arxiv.org/abs/2406.06652)
+    train on n = 100 and test on other instances
+    """
+    return scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, scale=math.log(k.size(-2), 100) / math.sqrt(k.size(-1)))
+
 def scaled_dot_product_graph_attention_simple(
     q, k, v, e1, e2, attn_mask=None, dropout_p=0.0, is_causal=False
 ):
@@ -114,7 +126,7 @@ class AAFTAttention(nn.Module):
         ).unbind(dim=0)
         q = F.sigmoid(q)
         k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
-        w = -self.alpha * torch.tensor(x.size(1)).log2() * dist + self.beta * torch.eye(x.size(1), device=x.device)
+        w = -self.alpha * math.log2(x.size(-2)) * dist + self.beta * torch.eye(x.size(-2), device=x.device)
         w = torch.exp(w - torch.max(w, dim=-1, keepdim=True)[0])
         wkv = torch.einsum('b i j, b j d -> b i d', w, k*v)
         wk = torch.einsum('b i j, b j d -> b i d', w, k)

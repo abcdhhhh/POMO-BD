@@ -13,6 +13,7 @@ from torch import Tensor
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.pylogger import get_pylogger
 from rl4co.utils.ops import batchify, unbatchify, gather_by_index
+import math
 
 log = get_pylogger(__name__)
 
@@ -87,8 +88,7 @@ class ICAMDecoder(AttentionModelDecoder):
             locs = unbatchify(locs, num_starts)
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
-        n = locs.size(-2)
-        bias = self.alpha * torch.tensor(n).log2() * torch.cdist(locs, locs, p=2)
+        bias = self.alpha * math.log2(locs.size(-2)) * torch.cdist(locs, locs, p=2)
 
         # Organize in a dataclass for easy access
         return BiasCache(

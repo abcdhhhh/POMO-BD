@@ -16,6 +16,7 @@ from rl4co.models.common.constructive.autoregressive.policy import Autoregressiv
 from .encoder import ICAMEncoder
 from .decoder import ICAMDecoder
 from rl4co.utils.pylogger import get_pylogger
+from models.nn.attention import esf_sdpa
 
 log = get_pylogger(__name__)
 
@@ -36,7 +37,8 @@ class ICAMPolicy(AutoregressivePolicy):
             dynamic_embedding: nn.Module = None,
             use_graph_context: bool = True,
             linear_bias_decoder: bool = False,
-            sdpa_fn_decoder: Callable = None,
+            sdpa_fn_encoder: Callable = esf_sdpa,
+            sdpa_fn_decoder: Callable = esf_sdpa,
             mask_inner: bool = True,
             out_bias_pointer_attn: bool = False,
             check_nan: bool = True,
@@ -87,6 +89,7 @@ class ICAMPolicy(AutoregressivePolicy):
                 normalization=normalization,
                 feedforward_hidden=feedforward_hidden,
                 net=encoder_network,
+                sdpa_fn=sdpa_fn_encoder,
                 moe_kwargs=moe_kwargs["encoder"],
             )
         

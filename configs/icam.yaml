@@ -66,7 +66,7 @@ model:
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:
-    milestones: [2300]
+    milestones: [800]
     gamma: 0.1
   metrics:
     train: ["loss", "reward", "max_reward"]
@@ -75,8 +75,8 @@ model:
     log_on_step: True
 
 trainer:
-  max_epochs: 2500
-  precision: 32-true # icam is sensitive to precision, especially icam encoder
+  max_epochs: 1000
+  precision: 32-true # set '32-true' if use aaft encoder
   # set 'wandb' if use wandb, 'null' otherwise
   logger: wandb
   default_root_dir: ${save_dir}
