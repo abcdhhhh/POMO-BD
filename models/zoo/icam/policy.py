@@ -51,20 +51,7 @@ class ICAMPolicy(AutoregressivePolicy):
             moe_kwargs: dict = {"encoder": None, "decoder": None},
             **kwargs
         ):
-        """
-        You can set decode_type to multistart for symmetric problems
-        """
-
-        if pointer == "poly":
-            from rl4co.models.nn.attention import PolyNetAttention
-            pointer = PolyNetAttention(
-                k=128,
-                embed_dim=embed_dim,
-                poly_layer_dim=embed_dim*2,
-                num_heads=num_heads,
-            )
-
-        if encoder in ["aaft", "gt", "mixed"]:
+        if encoder == "aaft":
             encoder = ICAMEncoder(
                 embed_dim=embed_dim,
                 gt_type=encoder,

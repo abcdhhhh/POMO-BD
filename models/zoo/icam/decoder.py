@@ -3,6 +3,7 @@ from typing import Tuple, Union
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from rl4co.models.zoo.am.decoder import AttentionModelDecoder, PrecomputedCache
 
@@ -38,6 +39,15 @@ class ICAMDecoder(AttentionModelDecoder):
         pointer: nn.Module = None,
         moe_kwargs: dict = None,
     ):
+        if pointer is None:
+            from models.nn.attention import AAFTPointerAttention
+            pointer = AAFTPointerAttention(
+                embed_dim=embed_dim,
+                mask_inner=mask_inner,
+                out_bias=out_bias_pointer_attn,
+                check_nan=check_nan,
+            )
+
         super().__init__(
             embed_dim=embed_dim,
             num_heads=num_heads,
@@ -53,7 +63,6 @@ class ICAMDecoder(AttentionModelDecoder):
             pointer=pointer,
             moe_kwargs=moe_kwargs,
         )
-        self.alpha = nn.Parameter(torch.tensor(1.))
 
     def pre_decoder_hook(
         self, td, env, embeddings, num_starts: int = 0
@@ -88,7 +97,7 @@ class ICAMDecoder(AttentionModelDecoder):
             locs = unbatchify(locs, num_starts)
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
-        bias = self.alpha * math.log2(locs.size(-2)) * torch.cdist(locs, locs, p=2)
+        bias = math.log2(locs.size(-2)) * torch.cdist(locs, locs, p=2)
 
         # Organize in a dataclass for easy access
         return BiasCache(
@@ -103,13 +112,13 @@ class ICAMDecoder(AttentionModelDecoder):
     def forward(
         self,
         td: TensorDict,
-        cached: PrecomputedCache,
+        cached: BiasCache,
         num_starts: int = 0,
     ) -> Tuple[Tensor, Tensor]:
         """Compute the logits of the next actions given the current state
 
         Args:
-            cache: Precomputed embeddings
+            cache: Precomputed embeddings and bias
             td: TensorDict with the current environment state
             num_starts: Number of starts for the multi-start decoding
         """
@@ -128,13 +137,15 @@ class ICAMDecoder(AttentionModelDecoder):
         glimpse_q = self._compute_q(cached, td)
         glimpse_k, glimpse_v, logit_k = self._compute_kvl(cached, td)
 
-        bias = gather_by_index(cached.bias, td["current_node"])
-
+        current_node = td["current_node"]
+        if (num_starts > 1 and current_node.ndim == 3) or (num_starts == 1 and current_node.ndim == 2):
+            current_node = current_node.squeeze(-1)
+        bias = gather_by_index(cached.bias, current_node)
+        cur = F.one_hot(current_node, num_classes=cached.bias.size(-1))
+        
         # Compute logits
         mask = td["action_mask"]
-        logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
-
-        logits = logits - bias
+        logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias, cur, mask)
 
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here

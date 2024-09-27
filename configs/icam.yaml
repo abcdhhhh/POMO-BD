@@ -49,9 +49,7 @@ model:
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
     val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
-    # set 'poly' for polynet attention, 'null' for simple attention
-    pointer: null
-    # choose from 'am', 'aaft', 'gt', 'mixed', 'ham'
+    # choose from 'am', 'aaft', 'ham'
     encoder: aaft
     # choose from 'am', 'cab'
     decoder: cab

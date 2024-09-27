@@ -75,7 +75,6 @@ model:
     embed_dim: 64
     k_sparse: 100
 
-    # pointer: null
     # encoder: aaft
     # decoder: cab
     # embed_dim: ${embed_dim}
@@ -88,7 +87,6 @@ model:
     train_decode_type: sampling
     val_decode_type: greedy
     test_decode_type: ${model.policy_r_kwargs.val_decode_type}
-    pointer: null
     encoder: am
     decoder: cab
     embed_dim: ${embed_dim}

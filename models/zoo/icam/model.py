@@ -71,10 +71,10 @@ class ICAM(REINFORCE):
             if self.env.name == "tsp":
                 if self.current_epoch < 100:
                     num_loc = 100
-                    batch_size = 256
+                    batch_size = 128
                 else:
                     num_loc = torch.randint(100, 501, []).item()
-                    batch_size = 1_600_000 // num_loc ** 2
+                    batch_size = 1_000_000 // num_loc ** 2
                 n_start = num_loc
                 td = td[:batch_size]
                 td["action_mask"] = td["action_mask"][:, :num_loc]
@@ -87,7 +87,7 @@ class ICAM(REINFORCE):
                 else:
                     num_loc = torch.randint(100, 501, []).item()
                     capacity = torch.randint(50, 101, []).item()
-                    batch_size = 1_280_000 // num_loc ** 2
+                    batch_size = 1_000_000 // num_loc ** 2
                 n_start = num_loc
                 td = td[:batch_size]
                 td["action_mask"] = td["action_mask"][:, :num_loc+1]
