@@ -6,7 +6,7 @@ from torch import Tensor
 
 from rl4co.models.nn.mlp import MLP
 from rl4co.models.nn.moe import MoE
-from models.nn.attention import AAFTAttention, GTAttention
+from models.nn.attention import AAFTAttention, GTAttention, MixedAttention
 from rl4co.models.nn.ops import Normalization, SkipConnection
 from rl4co.utils.pylogger import get_pylogger
 
@@ -35,6 +35,8 @@ class GTLayer(nn.Module):
             self.gt = GTAttention(embed_dim=embed_dim, num_heads=num_heads, bias=bias)
         elif gt_type == "aaft":
             self.gt = AAFTAttention(embed_dim=embed_dim, bias=bias)
+        elif gt_type == "mixed":
+            self.gt = MixedAttention(embed_dim=embed_dim, num_heads=num_heads, bias=bias)
         
         self.post_gt = nn.Sequential(
             Normalization(embed_dim, normalization),

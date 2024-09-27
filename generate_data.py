@@ -123,7 +123,7 @@ def generate_dataset_(
                     np.savez(fname, **dataset)
 
 if __name__ == '__main__':
-    for problem, data_distribution in [("tsp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all")]:
+    for problem, data_distribution in [("tsp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("pdp", "all")]:
         # set sizes  
         if problem == "tsp":
             sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 2000, 5000]), (16, [10000])]
@@ -131,6 +131,8 @@ if __name__ == '__main__':
             sizes = [(10000, [20, 50, 100]), (128, [500]), (100, [1000, 2000, 5000, 7000])]
         elif problem in ["op", "pctsp"]:
             sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 5000]), (16, [2000])]
+        elif problem == "pdp":
+            sizes = [(10000, [20, 50, 100])]
 
         kwargs = {}
         # set capacities

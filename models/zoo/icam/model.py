@@ -64,6 +64,8 @@ class ICAM(REINFORCE):
     ):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
+
+
         if phase == "train":
             # downsample td for curriculum training
             if self.env.name == "tsp":
@@ -128,6 +130,7 @@ class ICAM(REINFORCE):
                 td["stochastic_prize"] = td["stochastic_prize"][:, :num_loc] * 500 / num_loc
                 td["visited"] = td["visited"][:, :num_loc+1]
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
+
 
         # During training, we do not augment the data
         if phase == "train":

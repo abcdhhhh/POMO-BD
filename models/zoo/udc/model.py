@@ -88,29 +88,30 @@ class UDC(REINFORCE):
 
             if self.env.name == "tsp" and self.current_epoch < 50:
                 self.num_loc = self.num_loc_min
-                out = self.infer(batch, phase, phase, self.alpha_train * 2, self.beta_train)
+                out = self.infer(batch, phase, self.alpha_train * 2, self.beta_train)
             else:
                 self.num_loc = torch.randint(self.num_loc_min // part_size, self.num_loc_max // part_size + 1, []).item() * part_size
-                out = self.infer(batch, phase, phase, self.alpha_train, self.beta_train)
+                out = self.infer(batch, phase, self.alpha_train, self.beta_train)
         else:
-            out = self.infer(batch, phase, phase, self.alpha_val, self.beta_val)
+            out = self.infer(batch, phase, self.alpha_val, self.beta_val)
         self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
     
-    def infer(self, batch: TensorDict, phase_d: str, phase_r: str, ns_d: int, ns_r: int, **kwargs):
+    def infer(self, batch: TensorDict, phase: str, alpha: int, beta: int, **kwargs):
         td = self.env.reset(batch)
-        if "train" in [phase_d, phase_r] and hasattr(self, "num_loc"):
-            td["action_mask"] = td["action_mask"][:, :self.num_loc]
-            td["locs"] = td["locs"][:, :self.num_loc, :]
+        if phase == "train":
+            if self.env.name == "tsp":
+                td["action_mask"] = td["action_mask"][:, :self.num_loc]
+                td["locs"] = td["locs"][:, :self.num_loc, :]
         out_d = self.policy_d.forward(
             td.clone(), 
             env=self.env, 
-            phase=phase_d, 
+            phase=phase, 
             return_actions=True, 
-            num_starts=ns_d, 
+            num_starts=alpha, 
             multisample=True
         )
 
-        td = batchify(td, ns_d)
+        td = batchify(td, alpha)
         actions = out_d["actions"]
         for i in range(self.iters):
             if i == 0:
@@ -122,11 +123,11 @@ class UDC(REINFORCE):
             actions, loss = self.revise(
                 td = td,
                 actions = actions,
-                phase = phase_r,
-                num_starts = ns_r,
+                phase = phase,
+                num_starts = beta,
                 offset = offset,
             )
-            if phase_r == "train":
+            if phase == "train":
                 # loss_r = loss_r + loss
                 opt_d, opt_r = self.optimizers()
                 opt_r.zero_grad()
@@ -134,18 +135,18 @@ class UDC(REINFORCE):
                 opt_r.step()
                 out_d.update({f"loss_r{i}": loss})
 
-        reward = unbatchify(self.env.get_reward(td, actions), ns_d)
-        par_reward = unbatchify(out_d["reward"], ns_d)
-        actions = unbatchify(actions, ns_d)
+        reward = unbatchify(self.env.get_reward(td, actions), alpha)
+        par_reward = unbatchify(out_d["reward"], alpha)
+        actions = unbatchify(actions, alpha)
         out_d.update({"reward": reward, "actions": actions})
-        if phase_d == "train":
-            ll_d = unbatchify(out_d["log_likelihood"], ns_d)
+        if phase == "train":
+            ll_d = unbatchify(out_d["log_likelihood"], alpha)
             self.calculate_loss(td, td, out_d, self.w * reward + (1 - self.w) * par_reward, ll_d)
             opt_d, opt_r = self.optimizers()
             opt_d.zero_grad()
             self.manual_backward(out_d["loss"])
             opt_d.step()
-        if ns_d > 1:
+        if alpha > 1:
             max_reward, max_idxs = reward.max(dim=-1)
             out_d.update({"max_reward": max_reward})
         return out_d

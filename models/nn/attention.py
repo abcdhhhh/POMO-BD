@@ -16,7 +16,7 @@ def esf_sdpa(
     """
     return scaled_dot_product_attention(q, k, v, attn_mask=attn_mask, dropout_p=dropout_p, is_causal=is_causal, scale=math.log(k.size(-2), 100) / math.sqrt(k.size(-1)))
 
-def scaled_dot_product_graph_attention_simple(
+def gt_sdpa(
     q, k, v, e1, e2, attn_mask=None, dropout_p=0.0, is_causal=False
 ):
     # Check for causal and attn_mask conflict
@@ -51,10 +51,46 @@ def scaled_dot_product_graph_attention_simple(
     # Compute the weighted sum of values
     return torch.matmul(attn_weights, v)
 
+def mixed_sdpa(
+    q, k, v, e1, e2, attn_mask=None, dropout_p=0.0, is_causal=False
+):
+    # Check for causal and attn_mask conflict
+    if is_causal and attn_mask is not None:
+        raise ValueError("Cannot set both is_causal and attn_mask")
+
+    # Calculate scaled dot product
+    q = torch.unsqueeze(q, -2) + e1
+    k = torch.unsqueeze(k, -3) + e2
+    scores = torch.einsum("b h i j d, b h i j d -> b h i j", q, k) / math.sqrt(k.size(-1))
+
+    # Apply the provided attention mask
+    if attn_mask is not None:
+        if attn_mask.dtype == torch.bool:
+            scores.masked_fill_(~attn_mask, float("-inf"))
+        else:
+            scores += attn_mask
+
+    # Apply causal mask
+    if is_causal:
+        s, l_ = scores.size(-2), scores.size(-1)
+        mask = torch.triu(torch.ones((s, l_), device=scores.device), diagonal=1)
+        scores.masked_fill_(mask.bool(), float("-inf"))
+
+    # Softmax to get attention weights
+    attn_weights = F.softmax(scores, dim=-1)
+
+    # Apply dropout
+    if dropout_p > 0.0:
+        attn_weights = F.dropout(attn_weights, p=dropout_p)
+
+    # Compute the weighted sum of values
+    return torch.matmul(attn_weights, v)
+
 class GTAttention(nn.Module):
     """ 
     following MARCO (https://arxiv.org/abs/2408.02207) and GT (https://arxiv.org/abs/2012.09699)
     inputs include a distance matrix
+    memory O(bn^2h+bnhd)
     """
     def __init__(
         self,
@@ -86,10 +122,55 @@ class GTAttention(nn.Module):
             self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads,
         ).unbind(dim=0)
         e1, e2 = rearrange(
-            self.We(dist.unsqueeze(-1)), "b i j (two h) -> two b h i j", two=2
+            self.We(dist.unsqueeze(-1)), "b i j (two h) -> two b h i j", two=2,
         ).unbind(dim=0)
 
-        out = scaled_dot_product_graph_attention_simple(
+        out = gt_sdpa(
+            q, k, v, e1, e2, attn_mask=attn_mask, dropout_p=self.attention_dropout, is_causal=self.causal,
+        )
+
+        return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))  
+
+class MixedAttention(nn.Module):
+    """ 
+    following GOAL (https://arxiv.org/abs/2406.15079)
+    inputs include a distance matrix
+    memory O(bn^2hd)
+    """
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        bias: bool = True,
+        attention_dropout: float = 0.0,
+        causal: bool = False,
+        device: str = None,
+        dtype: torch.dtype = None,
+    ):
+        super().__init__()
+        self.num_heads = num_heads
+        self.causal = causal
+        self.attention_dropout = attention_dropout
+        assert embed_dim % num_heads == 0, "embed_dim must be divisible by num_heads"
+
+        factory_kwargs = {"device": device, "dtype": dtype}
+        self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
+        self.We = nn.Linear(1, 2 * embed_dim, bias=bias, **factory_kwargs)
+        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
+    
+    def forward(self, x: torch.Tensor, dist: torch.Tensor, attn_mask=None):
+        """
+        x: (batch, seqlen, hidden_dim)
+        dist: (batch, seqlen, seqlen)
+        """
+        q, k, v = rearrange(
+            self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads,
+        ).unbind(dim=0)
+        e1, e2 = rearrange(
+            self.We(dist.unsqueeze(-1)), "b i j (two h d) -> two b h i j d", two=2, h=self.num_heads,
+        ).unbind(dim=0)
+
+        out = mixed_sdpa(
             q, k, v, e1, e2, attn_mask=attn_mask, dropout_p=self.attention_dropout, is_causal=self.causal,
         )
 
@@ -100,6 +181,8 @@ class AAFTAttention(nn.Module):
     """ 
     following ICAM (https://arxiv.org/abs/2405.01906) and AFT-full (https://arxiv.org/abs/2105.14103)
     inputs include a distance matrix
+    memory O(bn^2+bnhd)
+    NOTE: may get NaN when training with 16-mixed
     """
     def __init__(
         self,

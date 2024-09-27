@@ -16,7 +16,6 @@ from rl4co.models.common.constructive.autoregressive.policy import Autoregressiv
 from .encoder import ICAMEncoder
 from .decoder import ICAMDecoder
 from rl4co.utils.pylogger import get_pylogger
-from models.nn.attention import esf_sdpa
 
 log = get_pylogger(__name__)
 
@@ -37,8 +36,8 @@ class ICAMPolicy(AutoregressivePolicy):
             dynamic_embedding: nn.Module = None,
             use_graph_context: bool = True,
             linear_bias_decoder: bool = False,
-            sdpa_fn_encoder: Callable = esf_sdpa,
-            sdpa_fn_decoder: Callable = esf_sdpa,
+            sdpa_fn_encoder: Callable = None,
+            sdpa_fn_decoder: Callable = None,
             mask_inner: bool = True,
             out_bias_pointer_attn: bool = False,
             check_nan: bool = True,
@@ -65,7 +64,7 @@ class ICAMPolicy(AutoregressivePolicy):
                 num_heads=num_heads,
             )
 
-        if encoder in ["aaft", "gt"]:
+        if encoder in ["aaft", "gt", "mixed"]:
             encoder = ICAMEncoder(
                 embed_dim=embed_dim,
                 gt_type=encoder,
@@ -91,6 +90,18 @@ class ICAMPolicy(AutoregressivePolicy):
                 net=encoder_network,
                 sdpa_fn=sdpa_fn_encoder,
                 moe_kwargs=moe_kwargs["encoder"],
+            )
+        elif encoder == "ham":
+            from rl4co.models.zoo.ham.encoder import GraphHeterogeneousAttentionEncoder
+            encoder = GraphHeterogeneousAttentionEncoder(
+                embed_dim=embed_dim,
+                init_embedding=init_embedding,
+                env_name=env_name,
+                num_heads=num_heads,
+                num_encoder_layers=num_encoder_layers,
+                normalization=normalization,
+                feedforward_hidden=feedforward_hidden,
+                sdpa_fn=sdpa_fn_encoder,
             )
         
         if decoder == "cab":

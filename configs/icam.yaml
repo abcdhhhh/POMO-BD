@@ -51,7 +51,7 @@ model:
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # set 'poly' for polynet attention, 'null' for simple attention
     pointer: null
-    # choose from 'am', 'aaft', 'gt'
+    # choose from 'am', 'aaft', 'gt', 'mixed', 'ham'
     encoder: aaft
     # choose from 'am', 'cab'
     decoder: cab
@@ -78,7 +78,7 @@ trainer:
   max_epochs: 1000
   precision: 32-true # set '32-true' if use aaft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: wandb
+  logger: null
   default_root_dir: ${save_dir}
 
 seed: 1234

@@ -33,7 +33,7 @@ logger:
 
 model:
   batch_size: 1
-  val_batch_size: 8
+  val_batch_size: 32
   test_batch_size: ${model.val_batch_size}
   train_data_size: 1000
   val_data_size: 128
@@ -70,19 +70,17 @@ model:
     val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_d_kwargs.val_decode_type}
 
-    num_layers_heatmap_generator: 5
+    num_layers_heatmap_generator: 3
     num_layers_graph_encoder: 12
+    embed_dim: 64
     k_sparse: 100
 
-    # # set 'poly' for polynet attention, 'null' for simple attention
     # pointer: null
-    # # choose from 'am', 'aaft', 'gt'
-    # encoder: am
-    # # choose from 'am', 'cab'
+    # encoder: aaft
     # decoder: cab
     # embed_dim: ${embed_dim}
     # tanh_clipping: 50.
-    # num_encoder_layers: 6
+    # num_encoder_layers: 12
     # normalization: instance
     
   policy_r_name: icam
@@ -90,11 +88,8 @@ model:
     train_decode_type: sampling
     val_decode_type: greedy
     test_decode_type: ${model.policy_r_kwargs.val_decode_type}
-    # set 'poly' for polynet attention, 'null' for simple attention
     pointer: null
-    # choose from 'am', 'aaft', 'gt'
     encoder: am
-    # choose from 'am', 'cab'
     decoder: cab
     embed_dim: ${embed_dim}
     tanh_clipping: 50.
@@ -103,9 +98,9 @@ model:
   
 trainer:
   max_epochs: 500
-  precision: 32-true # udc is sensitive to precision
+  precision: 32-true
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: wandb
+  logger: null
   default_root_dir: ${save_dir}
 
 seed: 1234
