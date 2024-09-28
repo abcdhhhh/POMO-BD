@@ -63,6 +63,8 @@ class ICAMDecoder(AttentionModelDecoder):
             pointer=pointer,
             moe_kwargs=moe_kwargs,
         )
+        self.alpha = nn.Parameter(torch.tensor([1., 1.]))
+        self.beta = nn.Parameter(torch.tensor(0.))
 
     def pre_decoder_hook(
         self, td, env, embeddings, num_starts: int = 0
@@ -97,8 +99,9 @@ class ICAMDecoder(AttentionModelDecoder):
             locs = unbatchify(locs, num_starts)
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
-        bias = math.log2(locs.size(-2)) * torch.cdist(locs, locs, p=2)
-
+        n = locs.size(-2)
+        bias = self.alpha * math.log2(n) * torch.cdist(locs, locs, p=2)[..., None]
+        bias[..., 0] = bias[..., 0] + self.beta * torch.eye(n, device=bias.device)
         # Organize in a dataclass for easy access
         return BiasCache(
             node_embeddings=embeddings,
@@ -141,11 +144,10 @@ class ICAMDecoder(AttentionModelDecoder):
         if (num_starts > 1 and current_node.ndim == 3) or (num_starts == 1 and current_node.ndim == 2):
             current_node = current_node.squeeze(-1)
         bias = gather_by_index(cached.bias, current_node)
-        cur = F.one_hot(current_node, num_classes=cached.bias.size(-1))
         
         # Compute logits
         mask = td["action_mask"]
-        logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias, cur, mask)
+        logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias, mask)
 
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here

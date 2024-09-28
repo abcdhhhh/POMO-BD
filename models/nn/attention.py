@@ -76,14 +76,13 @@ class AAFTPointerAttention(PointerAttention):
             key: key tensor of shape [B, ..., S, E]
             value: value tensor of shape [B, ..., S, E]
             logit_key: logit key tensor of shape [B, ..., S, E]
-            bias: [B, ..., S]
-            cur: [B, ..., S]
+            bias: [B, ..., S, 2]
             attn_mask: attention mask tensor of shape [B, ..., S]. Note that `True` means that the value _should_ take part in attention
                 as described in the [PyTorch Documentation](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
         """
         q = F.sigmoid(q)
         k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
-        w = -self.alpha * bias + self.beta * cur
+        w = -bias[..., 0]
         # Apply the provided attention mask
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
@@ -100,14 +99,13 @@ class AAFTPointerAttention(PointerAttention):
         assert not torch.isnan(aft_out).any()
         
         glimpse = self._project_out(aft_out, attn_mask)
-        glimpse = aft_out
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul
         logits = (torch.bmm(glimpse, logit_key.squeeze(-2).transpose(-2, -1))).squeeze(
             -2
         ) / math.sqrt(glimpse.size(-1))
-        logits = logits - self.alpha_out * bias
+        logits = logits - self.alpha_out * bias[..., 1]
         
         if self.check_nan:
             assert not torch.isnan(logits).any(), "Logits contain NaNs"
