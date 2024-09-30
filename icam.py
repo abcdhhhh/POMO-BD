@@ -25,16 +25,11 @@ def run(cfg: DictConfig):
     )
     if cfg.ckpt_path:
         ckpt_state_dict = torch.load(cfg.ckpt_path, weights_only=False)['state_dict']
-        model.load_state_dict(ckpt_state_dict)
+        model.load_state_dict(ckpt_state_dict, strict=False)
 
     checkpoint_callback = ModelCheckpoint(
-        monitor="val/max_reward",
         dirpath=os.path.join(cfg.save_dir, "checkpoints", cfg.logger.name),
-        filename="{epoch:02d}_{val/reward:.4f}_{val/max_reward:.4f}",
-        auto_insert_metric_name=False,
-        save_top_k=3,
-        save_last=True,
-        mode="max",
+        **cfg.ckpt,
     )
 
     trainer_params_dict = OmegaConf.to_container(cfg.trainer, resolve=True)

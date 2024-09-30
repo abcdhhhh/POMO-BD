@@ -1,6 +1,6 @@
 # train/val/test
 mode: train
-env_name: tsp
+env_name: pctsp
 num_loc: 500
 embed_dim: 128
 num_heads: 8
@@ -27,7 +27,7 @@ logger:
   tags: ["icam", "${env_name}"]
   group: "${env_name}${num_loc}"
   save_dir: ${save_dir}
-  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${env_name}${num_loc}-${trainer.precision}
+  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}_${env_name}${num_loc}-${trainer.precision}
 
 model:
   batch_size: 256
@@ -42,17 +42,20 @@ model:
   elite_k: 1
   elite_alpha: 0.
   num_starts: ${num_loc}
+  # set 'rollout' for am, 'shared' for pomo
   baseline: shared
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: multistart_sampling
+    train_decode_type: sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: multistart_greedy
+    val_decode_type: sampling
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'am', 'aaft', 'ham'
-    encoder: aaft
+    encoder: am
     # choose from 'am', 'cab'
     decoder: cab
+    # if decoder is 'cab', then choose from 'aaft', 'poly', 'null'
+    pointer: null
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
     tanh_clipping: 50.
@@ -78,5 +81,13 @@ trainer:
   # set 'wandb' if use wandb, 'null' otherwise
   logger: null
   default_root_dir: ${save_dir}
+
+ckpt:
+  monitor: val/reward
+  filename: "{epoch:02d}_{val/reward:.4f}_{val/max_reward:.4f}"
+  auto_insert_metric_name: False
+  save_top_k: 3
+  save_last: True 
+  mode: max
 
 seed: 1234

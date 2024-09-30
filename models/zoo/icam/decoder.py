@@ -36,13 +36,25 @@ class ICAMDecoder(AttentionModelDecoder):
         use_graph_context: bool = True,
         check_nan: bool = True,
         sdpa_fn: callable = None,
-        pointer: nn.Module = None,
+        pointer: Union[nn.Module, str] = None,
         moe_kwargs: dict = None,
     ):
-        if pointer is None:
+        self.pointer_type = pointer
+        if pointer == "aaft":
             from models.nn.attention import AAFTPointerAttention
             pointer = AAFTPointerAttention(
                 embed_dim=embed_dim,
+                mask_inner=mask_inner,
+                out_bias=out_bias_pointer_attn,
+                check_nan=check_nan,
+            )
+        elif pointer == "poly":
+            from rl4co.models.nn.attention import PolyNetAttention
+            pointer = PolyNetAttention(
+                k=128,
+                embed_dim=embed_dim,
+                poly_layer_dim=embed_dim*2,
+                num_heads=num_heads,
                 mask_inner=mask_inner,
                 out_bias=out_bias_pointer_attn,
                 check_nan=check_nan,
@@ -63,8 +75,11 @@ class ICAMDecoder(AttentionModelDecoder):
             pointer=pointer,
             moe_kwargs=moe_kwargs,
         )
-        self.alpha = nn.Parameter(torch.tensor([1., 1.]))
-        self.beta = nn.Parameter(torch.tensor(0.))
+        if self.pointer_type == "aaft":
+            self.alpha_aft = nn.Parameter(torch.tensor(1.))
+            self.beta_aft = nn.Parameter(torch.tensor(0.))
+        self.alpha = nn.Parameter(torch.tensor(1.))
+        
 
     def pre_decoder_hook(
         self, td, env, embeddings, num_starts: int = 0
@@ -99,9 +114,13 @@ class ICAMDecoder(AttentionModelDecoder):
             locs = unbatchify(locs, num_starts)
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
+        
         n = locs.size(-2)
-        bias = self.alpha * math.log2(n) * torch.cdist(locs, locs, p=2)[..., None]
-        bias[..., 0] = bias[..., 0] + self.beta * torch.eye(n, device=bias.device)
+        bias = self.alpha * math.log2(n) * torch.cdist(locs, locs, p=2)
+        if self.pointer_type == "aaft":
+            bias_aft = self.alpha_aft * math.log2(n) * torch.cdist(locs, locs, p=2) + self.beta_aft * torch.eye(n, device=bias.device)
+            bias = torch.stack([bias_aft, bias], dim=0)
+
         # Organize in a dataclass for easy access
         return BiasCache(
             node_embeddings=embeddings,
@@ -143,12 +162,18 @@ class ICAMDecoder(AttentionModelDecoder):
         current_node = td["current_node"]
         if (num_starts > 1 and current_node.ndim == 3) or (num_starts == 1 and current_node.ndim == 2):
             current_node = current_node.squeeze(-1)
-        bias = gather_by_index(cached.bias, current_node)
         
         # Compute logits
         mask = td["action_mask"]
-        logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias, mask)
-
+        if self.pointer_type == "aaft":
+            bias_aft = gather_by_index(cached.bias[0], current_node)
+            logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias_aft, mask)
+            bias = gather_by_index(cached.bias[1], current_node)
+        else:
+            logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
+            bias = gather_by_index(cached.bias, current_node)
+        logits = logits - bias
+        
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here
         if num_starts > 1 and not has_dyn_emb_multi_start:
