@@ -1,11 +1,11 @@
 # train/val/test
-mode: train
-env_name: tsp
-num_loc: 500
+mode: test
+env_name: cvrp
+num_loc: 7000
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: null
+ckpt_path: outputs/checkpoints/aaft-cab-None_cvrp500-32-true/last.ckpt
 
 env:
   env_name: ${env_name}
@@ -13,10 +13,10 @@ env:
     num_loc: ${num_loc}
   check_solution: False # optimization
   data_dir: ./data/
-  val_file: ${env_name}/${env_name}${num_loc}_val_seed4321.npz
-  test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
-  # val_file: vrp/vrp${num_loc}_val_seed4321.npz
-  # test_file: vrp/vrp${num_loc}_test_seed1234.npz
+  # val_file: ${env_name}/${env_name}${num_loc}_val_seed4321.npz
+  # test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
+  val_file: vrp/vrp${num_loc}_val_seed4321.npz
+  test_file: vrp/vrp${num_loc}_test_seed1234.npz
   # val_file: op/op_dist${num_loc}_val_seed4321.npz
   # test_file: op/op_dist${num_loc}_test_seed1234.npz
   # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
@@ -31,24 +31,24 @@ logger:
 
 model:
   batch_size: 256
-  val_batch_size: 32
+  val_batch_size: 25
   test_batch_size: ${model.val_batch_size}
   train_data_size: 256000
-  val_data_size: 128
+  val_data_size: 100
   test_data_size: ${model.val_data_size}
   # set 'symmetric' if num_augment not in [1, 8], otherwise 'dihedral' (default)
   # augment_fn: symmetric
   num_augment: 1
   elite_k: 1
   elite_alpha: 0.
-  num_starts: ${num_loc}
+  num_starts: 1 # ${num_loc}
   # set 'rollout' for am, 'shared' for pomo
   baseline: shared
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: multistart_sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: multistart_greedy
+    val_decode_type: greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'am', 'aaft', 'ham'
     encoder: aaft

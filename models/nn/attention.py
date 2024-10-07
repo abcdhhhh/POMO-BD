@@ -38,9 +38,9 @@ class AAFTAttention(nn.Module):
             self.Wqkv(x), "b s (three d) -> three b s d", three=3,
         ).unbind(dim=0)
         q = F.sigmoid(q)
-        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
+        k = torch.exp(k)
         w = -self.alpha * math.log2(x.size(-2)) * dist - self.beta * torch.eye(x.size(-2), device=x.device)
-        w = torch.exp(w - torch.max(w, dim=-1, keepdim=True)[0])
+        w = torch.exp(w)
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
         wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
@@ -81,7 +81,7 @@ class AAFTPointerAttention(PointerAttention):
                 as described in the [PyTorch Documentation](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
         """
         q = F.sigmoid(q)
-        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
+        k = torch.exp(k)
         w = -bias
         # Apply the provided attention mask
         if attn_mask is not None:
@@ -89,9 +89,9 @@ class AAFTPointerAttention(PointerAttention):
                 w.masked_fill_(~attn_mask, float("-inf"))
             else:
                 w += attn_mask
-        w = torch.exp(w - torch.max(w, dim=-1, keepdim=True)[0])
         if w.ndim == 2:
             w = w.unsqueeze(1)
+        w = torch.exp(w)
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
         wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
