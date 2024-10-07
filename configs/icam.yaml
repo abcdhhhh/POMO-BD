@@ -1,6 +1,6 @@
 # train/val/test
 mode: train
-env_name: pctsp
+env_name: tsp
 num_loc: 500
 embed_dim: 128
 num_heads: 8
@@ -46,12 +46,12 @@ model:
   baseline: shared
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: sampling
+    train_decode_type: multistart_sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: sampling
+    val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'am', 'aaft', 'ham'
-    encoder: am
+    encoder: aaft
     # choose from 'am', 'cab'
     decoder: cab
     # if decoder is 'cab', then choose from 'aaft', 'poly', 'null'

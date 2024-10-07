@@ -39,7 +39,7 @@ class AAFTAttention(nn.Module):
         ).unbind(dim=0)
         q = F.sigmoid(q)
         k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
-        w = -self.alpha * math.log2(x.size(-2)) * dist + self.beta * torch.eye(x.size(-2), device=x.device)
+        w = -self.alpha * math.log2(x.size(-2)) * dist - self.beta * torch.eye(x.size(-2), device=x.device)
         w = torch.exp(w - torch.max(w, dim=-1, keepdim=True)[0])
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
@@ -68,7 +68,7 @@ class AAFTPointerAttention(PointerAttention):
         self.beta = nn.Parameter(torch.tensor(0.))
         self.alpha_out = nn.Parameter(torch.tensor(1.))
 
-    def forward(self, q, k, v, logit_key, bias, cur, attn_mask=None):
+    def forward(self, q, k, v, logit_key, bias, attn_mask=None):
         """Compute attention logits given query, key, value, logit key and attention mask.
 
         Args:
