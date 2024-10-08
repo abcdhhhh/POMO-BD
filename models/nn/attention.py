@@ -17,7 +17,7 @@ class AAFTAttention(nn.Module):
     def __init__(
         self,
         embed_dim: int,
-        bias: bool = True,
+        bias: bool = False,
         device: str = None,
         dtype: torch.dtype = None,
     ):
@@ -25,7 +25,6 @@ class AAFTAttention(nn.Module):
 
         factory_kwargs = {"device": device, "dtype": dtype}
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
         self.alpha = nn.Parameter(torch.tensor(1.))
         self.beta = nn.Parameter(torch.tensor(0.))
     
@@ -43,11 +42,9 @@ class AAFTAttention(nn.Module):
         w = torch.exp(w)
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
-        wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        out = q * wkv / wk
-        assert not torch.isnan(out).any()
+        out = q * (wkv / wk)
         
-        return self.out_proj(out)
+        return out
 
 class AAFTPointerAttention(PointerAttention):
     def __init__(
@@ -62,11 +59,7 @@ class AAFTPointerAttention(PointerAttention):
         self.mask_inner = mask_inner
 
         # Projection - query, key, value already include projections
-        self.project_out = nn.Linear(embed_dim, embed_dim, bias=out_bias)
         self.check_nan = check_nan
-        self.alpha = nn.Parameter(torch.tensor(1.))
-        self.beta = nn.Parameter(torch.tensor(0.))
-        self.alpha_out = nn.Parameter(torch.tensor(1.))
 
     def forward(self, q, k, v, logit_key, bias, attn_mask=None):
         """Compute attention logits given query, key, value, logit key and attention mask.
@@ -94,11 +87,7 @@ class AAFTPointerAttention(PointerAttention):
         w = torch.exp(w)
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
-        wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        aft_out = q * wkv / wk
-        assert not torch.isnan(aft_out).any()
-        
-        glimpse = self._project_out(aft_out, attn_mask)
+        glimpse = q * (wkv / wk)
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul

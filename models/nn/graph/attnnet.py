@@ -20,7 +20,7 @@ class GTLayer(nn.Module):
         num_heads: int = 8,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
-        bias: bool = True,
+        bias: bool = False,
         gt_type: str = "aaft",
         moe_kwargs: Optional[dict] = None,
     ):
