@@ -49,9 +49,7 @@ class AFTAttention(nn.Module):
 class AFTPointerAttention(PointerAttention):
     def __init__(
         self,
-        embed_dim: int,
         mask_inner: bool = True,
-        out_bias: bool = False,
         check_nan: bool = True,
         **kwargs,
     ):
@@ -75,13 +73,12 @@ class AFTPointerAttention(PointerAttention):
         """
         q = F.sigmoid(q)
         k = torch.exp(k)
-        w = -bias
+        w = bias
         # Apply the provided attention mask
         if attn_mask is not None:
-            if attn_mask.dtype == torch.bool:
-                w.masked_fill_(~attn_mask, float("-inf"))
-            else:
-                w += attn_mask
+            if attn_mask.dtype != torch.bool:
+                attn_mask = (attn_mask == -torch.inf)
+            w.masked_fill_(~attn_mask, 0.)
         if w.ndim == 2:
             w = w.unsqueeze(1)
         w = torch.exp(w)

@@ -50,9 +50,9 @@ model:
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
     val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
-    # choose from 'am', 'aft', 'ham'
+    # choose from 'aft', 'am', 'ham'
     encoder: aft
-    # choose from 'am', 'cab'
+    # choose from 'cab', 'am' 
     decoder: cab
     # if decoder is 'cab', then choose from 'aft', 'poly', 'null'
     pointer: aft

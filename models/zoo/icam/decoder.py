@@ -43,9 +43,7 @@ class ICAMDecoder(AttentionModelDecoder):
         if pointer == "aft":
             from models.nn.attention import AFTPointerAttention
             pointer = AFTPointerAttention(
-                embed_dim=embed_dim,
                 mask_inner=mask_inner,
-                out_bias=out_bias_pointer_attn,
                 check_nan=check_nan,
             )
         elif pointer == "poly":
@@ -119,6 +117,7 @@ class ICAMDecoder(AttentionModelDecoder):
         bias = self.alpha * math.log2(n) * torch.cdist(locs, locs, p=2)
         if self.pointer_type == "aft":
             bias_aft = self.alpha_aft * math.log2(n) * torch.cdist(locs, locs, p=2) + self.beta_aft * torch.eye(n, device=bias.device)
+            bias_aft = torch.exp(-bias_aft)
             bias = torch.stack([bias_aft, bias], dim=0)
 
         # Organize in a dataclass for easy access
