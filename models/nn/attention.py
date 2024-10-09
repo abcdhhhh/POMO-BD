@@ -38,7 +38,7 @@ class AFTAttention(nn.Module):
         ).unbind(dim=0)
         q = F.sigmoid(q)
         k = torch.exp(k)
-        w = -self.alpha * math.log2(x.size(-2)) * dist - self.beta * torch.eye(x.size(-2), device=x.device)
+        w = -self.alpha * math.log2(x.size(-1)) * dist - self.beta * torch.eye(x.size(-1), device=x.device)
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
                 w.masked_fill_(~attn_mask, float("-inf"))

@@ -28,6 +28,7 @@ class ICAMDecoder(AttentionModelDecoder):
         embed_dim: int = 128,
         num_heads: int = 8,
         env_name: str = "tsp",
+        encoder_type: str = "aft",
         context_embedding: nn.Module = None,
         dynamic_embedding: nn.Module = None,
         mask_inner: bool = True,
@@ -39,6 +40,7 @@ class ICAMDecoder(AttentionModelDecoder):
         pointer: Union[nn.Module, str] = None,
         moe_kwargs: dict = None,
     ):
+        self.encoder_type = encoder_type
         self.pointer_type = pointer
         if pointer == "aft":
             from models.nn.attention import AFTPointerAttention
@@ -84,8 +86,16 @@ class ICAMDecoder(AttentionModelDecoder):
     ) -> Tuple[TensorDict, RL4COEnvBase, BiasCache]:
         """Precompute the embeddings cache before the decoder is called"""
         return td, env, self._precompute_cache(td, embeddings, num_starts=num_starts)
-
+    
     def _precompute_cache(
+        self, td, embeddings: Tensor, num_starts: int = 0
+    ) -> BiasCache:
+        if self.encoder_type == "aft":
+            return self._precompute_cache_aft(td, embeddings, num_starts)
+        elif self.encoder_type == "mataft":
+            return self._precompute_cache_mataft(td, embeddings, num_starts)
+
+    def _precompute_cache_aft(
         self, td, embeddings: torch.Tensor, num_starts: int = 0
     ) -> BiasCache:
         """Compute the cached embeddings for the pointer attention.
@@ -112,8 +122,7 @@ class ICAMDecoder(AttentionModelDecoder):
             locs = unbatchify(locs, num_starts)
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
-        
-        n = locs.size(-2)
+        n = locs.size(-1)
         bias = self.alpha * math.log2(n) * torch.cdist(locs, locs, p=2)
         if self.pointer_type == "aft":
             bias_aft = self.alpha_aft * math.log2(n) * torch.cdist(locs, locs, p=2) + self.beta_aft * torch.eye(n, device=bias.device)
@@ -128,6 +137,46 @@ class ICAMDecoder(AttentionModelDecoder):
             glimpse_val=glimpse_val_fixed,
             logit_key=logit_key_fixed,
             bias=bias,
+        )
+    
+    def _precompute_cache_mataft(
+        self, td, embeddings: torch.Tensor, num_starts: int = 0
+    ) -> BiasCache:
+        col_emb, row_emb = embeddings
+        (
+            glimpse_key_fixed,
+            glimpse_val_fixed,
+            logit_key,
+        ) = self.project_node_embeddings(
+            col_emb
+        ).chunk(3, dim=-1)
+
+        # Optionally disable the graph context from the initial embedding as done in POMO
+        if self.use_graph_context:
+            graph_context = self.project_fixed_context(col_emb.mean(1))
+        else:
+            graph_context = 0
+
+        dmat = td["cost_matrix"]
+        if num_starts > 1:
+            dmat = unbatchify(dmat, num_starts)
+            assert (dmat == dmat[:, [0]]).all()
+            dmat = dmat[:, 0]
+        n = dmat.size(-1)
+        bias = self.alpha * math.log2(n) * dmat
+        if self.pointer_type == "aft":
+            bias_aft = self.alpha_aft * math.log2(n) * dmat
+            bias_aft = torch.exp(-bias_aft)
+            bias = torch.stack([bias_aft, bias], dim=0)
+
+        # Organize in a dataclass for easy access
+        return BiasCache(
+            node_embeddings=row_emb,
+            graph_context=graph_context,
+            glimpse_key=glimpse_key_fixed,
+            glimpse_val=glimpse_val_fixed,
+            logit_key=logit_key,
+            bias=bias
         )
 
     def forward(

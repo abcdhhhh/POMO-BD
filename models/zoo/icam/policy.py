@@ -13,7 +13,7 @@ from rl4co.utils.decoding import (
 from utils.decoding import DecodingStrategyForced
 from rl4co.utils.ops import calculate_entropy
 from rl4co.models.common.constructive.autoregressive.policy import AutoregressivePolicy
-from .encoder import ICAMEncoder
+from .encoder import AFTEncoder, MatAFTEncoder
 from .decoder import ICAMDecoder
 from rl4co.utils.pylogger import get_pylogger
 
@@ -51,14 +51,25 @@ class ICAMPolicy(AutoregressivePolicy):
             moe_kwargs: dict = {"encoder": None, "decoder": None},
             **kwargs
         ):
+        encoder_type = "mataft" if encoder in ["mataft", "matnet"] else "aft"
         if encoder == "aft":
-            encoder = ICAMEncoder(
+            encoder = AFTEncoder(
                 embed_dim=embed_dim,
                 init_embedding=init_embedding,
                 env_name=env_name,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
                 feedforward_hidden=feedforward_hidden,
+                net=encoder_network,
+            )
+        elif encoder == "mataft":
+            encoder = MatAFTEncoder(
+                embed_dim=embed_dim,
+                env_name=env_name,
+                num_layers=num_encoder_layers,
+                normalization=normalization,
+                feedforward_hidden=feedforward_hidden,
+                init_embedding=init_embedding,
                 net=encoder_network,
             )
         elif encoder == "am":
@@ -74,6 +85,16 @@ class ICAMPolicy(AutoregressivePolicy):
                 net=encoder_network,
                 sdpa_fn=sdpa_fn_encoder,
                 moe_kwargs=moe_kwargs["encoder"],
+            )
+        elif encoder == "matnet":
+            from rl4co.models.zoo.matnet.encoder import MatNetEncoder
+            encoder = MatNetEncoder(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                num_layers=num_encoder_layers,
+                normalization=normalization,
+                feedforward_hidden=feedforward_hidden,
+                init_embedding=init_embedding,
             )
         elif encoder == "ham":
             from rl4co.models.zoo.ham.encoder import GraphHeterogeneousAttentionEncoder
@@ -93,6 +114,7 @@ class ICAMPolicy(AutoregressivePolicy):
                 embed_dim=embed_dim,
                 num_heads=num_heads,
                 env_name=env_name,
+                encoder_type=encoder_type,
                 context_embedding=context_embedding,
                 dynamic_embedding=dynamic_embedding,
                 mask_inner=mask_inner,
@@ -107,6 +129,23 @@ class ICAMPolicy(AutoregressivePolicy):
         elif decoder == "am":
             from rl4co.models.zoo.am.decoder import AttentionModelDecoder
             decoder = AttentionModelDecoder(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                env_name=env_name,
+                context_embedding=context_embedding,
+                dynamic_embedding=dynamic_embedding,
+                mask_inner=mask_inner,
+                out_bias_pointer_attn=out_bias_pointer_attn,
+                linear_bias=linear_bias_decoder,
+                use_graph_context=use_graph_context,
+                check_nan=check_nan,
+                sdpa_fn=sdpa_fn_decoder,
+                pointer=pointer,
+                moe_kwargs=moe_kwargs["decoder"],
+            )
+        elif decoder == "matnet":
+            from rl4co.models.zoo.matnet.decoder import MatNetDecoder
+            decoder = MatNetDecoder(
                 embed_dim=embed_dim,
                 num_heads=num_heads,
                 env_name=env_name,
