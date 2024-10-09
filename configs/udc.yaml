@@ -75,7 +75,7 @@ model:
     embed_dim: 64
     k_sparse: 100
 
-    # encoder: aaft
+    # encoder: aft
     # decoder: cab
     # embed_dim: ${embed_dim}
     # tanh_clipping: 50.

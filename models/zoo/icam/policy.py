@@ -51,7 +51,7 @@ class ICAMPolicy(AutoregressivePolicy):
             moe_kwargs: dict = {"encoder": None, "decoder": None},
             **kwargs
         ):
-        if encoder == "aaft":
+        if encoder == "aft":
             encoder = ICAMEncoder(
                 embed_dim=embed_dim,
                 gt_type=encoder,

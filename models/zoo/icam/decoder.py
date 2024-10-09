@@ -40,9 +40,9 @@ class ICAMDecoder(AttentionModelDecoder):
         moe_kwargs: dict = None,
     ):
         self.pointer_type = pointer
-        if pointer == "aaft":
-            from models.nn.attention import AAFTPointerAttention
-            pointer = AAFTPointerAttention(
+        if pointer == "aft":
+            from models.nn.attention import AFTPointerAttention
+            pointer = AFTPointerAttention(
                 embed_dim=embed_dim,
                 mask_inner=mask_inner,
                 out_bias=out_bias_pointer_attn,
@@ -75,7 +75,7 @@ class ICAMDecoder(AttentionModelDecoder):
             pointer=pointer,
             moe_kwargs=moe_kwargs,
         )
-        if self.pointer_type == "aaft":
+        if self.pointer_type == "aft":
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
             self.beta_aft = nn.Parameter(torch.tensor(0.))
         self.alpha = nn.Parameter(torch.tensor(1.))
@@ -117,7 +117,7 @@ class ICAMDecoder(AttentionModelDecoder):
         
         n = locs.size(-2)
         bias = self.alpha * math.log2(n) * torch.cdist(locs, locs, p=2)
-        if self.pointer_type == "aaft":
+        if self.pointer_type == "aft":
             bias_aft = self.alpha_aft * math.log2(n) * torch.cdist(locs, locs, p=2) + self.beta_aft * torch.eye(n, device=bias.device)
             bias = torch.stack([bias_aft, bias], dim=0)
 
@@ -165,7 +165,7 @@ class ICAMDecoder(AttentionModelDecoder):
         
         # Compute logits
         mask = td["action_mask"]
-        if self.pointer_type == "aaft":
+        if self.pointer_type == "aft":
             bias_aft = gather_by_index(cached.bias[0], current_node)
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias_aft, mask)
             bias = gather_by_index(cached.bias[1], current_node)

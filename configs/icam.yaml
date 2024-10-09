@@ -50,12 +50,12 @@ model:
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
     val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
-    # choose from 'am', 'aaft', 'ham'
-    encoder: aaft
+    # choose from 'am', 'aft', 'ham'
+    encoder: aft
     # choose from 'am', 'cab'
     decoder: cab
-    # if decoder is 'cab', then choose from 'aaft', 'poly', 'null'
-    pointer: aaft
+    # if decoder is 'cab', then choose from 'aft', 'poly', 'null'
+    pointer: aft
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
     tanh_clipping: 50.
@@ -77,7 +77,7 @@ model:
 
 trainer:
   max_epochs: 1000
-  precision: 32-true # set '32-true' if use aaft encoder
+  precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
   logger: null
   default_root_dir: ${save_dir}

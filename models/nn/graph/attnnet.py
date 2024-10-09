@@ -6,7 +6,7 @@ from torch import Tensor
 
 from rl4co.models.nn.mlp import MLP
 from rl4co.models.nn.moe import MoE
-from models.nn.attention import AAFTAttention
+from models.nn.attention import AFTAttention
 from rl4co.models.nn.ops import Normalization, SkipConnection
 from rl4co.utils.pylogger import get_pylogger
 
@@ -21,7 +21,7 @@ class GTLayer(nn.Module):
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
         bias: bool = False,
-        gt_type: str = "aaft",
+        gt_type: str = "aft",
         moe_kwargs: Optional[dict] = None,
     ):
         super().__init__()
@@ -32,8 +32,8 @@ class GTLayer(nn.Module):
             ffn = MLP(input_dim=embed_dim, output_dim=embed_dim, num_neurons=num_neurons, hidden_act="ReLU")
         
 
-        if gt_type == "aaft":
-            self.gt = AAFTAttention(embed_dim=embed_dim, bias=bias)
+        if gt_type == "aft":
+            self.gt = AFTAttention(embed_dim=embed_dim, bias=bias)
         else:
             raise NotImplementedError
         
@@ -57,7 +57,7 @@ class GTNetwork(nn.Module):
         num_heads: int = 8,
         normalization: str = "batch",
         feedforward_hidden: int = 512,
-        gt_type: str = "aaft",
+        gt_type: str = "aft",
         moe_kwargs: Optional[dict] = None,
     ):
         super(GTNetwork, self).__init__()

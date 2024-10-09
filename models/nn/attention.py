@@ -7,7 +7,7 @@ from einops import rearrange
 from rl4co.models.nn.attention import PointerAttention
 import math
 
-class AAFTAttention(nn.Module):
+class AFTAttention(nn.Module):
     """ 
     following ICAM (https://arxiv.org/abs/2405.01906) and AFT-full (https://arxiv.org/abs/2105.14103)
     inputs include a distance matrix
@@ -46,7 +46,7 @@ class AAFTAttention(nn.Module):
         
         return out
 
-class AAFTPointerAttention(PointerAttention):
+class AFTPointerAttention(PointerAttention):
     def __init__(
         self,
         embed_dim: int,

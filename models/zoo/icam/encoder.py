@@ -32,7 +32,7 @@ class ICAMEncoder(AutoregressiveEncoder):
     def __init__(
         self,
         embed_dim: int = 128,
-        gt_type: str = "aaft",
+        gt_type: str = "aft",
         init_embedding: nn.Module = None,
         env_name: str = "tsp",
         num_heads: int = 8,
