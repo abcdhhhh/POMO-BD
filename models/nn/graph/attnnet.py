@@ -4,85 +4,125 @@ import torch.nn as nn
 
 from torch import Tensor
 
-from rl4co.models.nn.mlp import MLP
-from rl4co.models.nn.moe import MoE
-from models.nn.attention import AFTAttention
-from rl4co.models.nn.ops import Normalization, SkipConnection
+from models.nn.attention import AFTAttention, AFTCrossAttention
+from rl4co.models.nn.ops import TransformerFFN
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
 
-class GTLayer(nn.Module):
+class AFTLayer(nn.Module):
     def __init__(
         self,
         embed_dim: int,
-        num_heads: int = 8,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
         bias: bool = False,
-        gt_type: str = "aft",
-        moe_kwargs: Optional[dict] = None,
     ):
-        super().__init__()
-        num_neurons = [feedforward_hidden] if feedforward_hidden > 0 else []
-        if moe_kwargs is not None:
-            ffn = MoE(embed_dim, embed_dim, num_neurons=num_neurons, **moe_kwargs)
-        else:
-            ffn = MLP(input_dim=embed_dim, output_dim=embed_dim, num_neurons=num_neurons, hidden_act="ReLU")
-        
+        super().__init__()  
+        self.aft = AFTAttention(embed_dim=embed_dim, bias=bias)
+        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization)
 
-        if gt_type == "aft":
-            self.gt = AFTAttention(embed_dim=embed_dim, bias=bias)
-        else:
-            raise NotImplementedError
-        
-        self.post_gt = nn.Sequential(
-            Normalization(embed_dim, normalization),
-            SkipConnection(ffn),
-            Normalization(embed_dim, normalization),
-        )
-
-    def forward(self, x, dist):
-        x = x + self.gt(x, dist)
-        x = self.post_gt(x)
+    def forward(self, x, dist, attn_mask=None):
+        x_out = x + self.aft(x, dist, attn_mask)
+        x = self.ffn(x_out, x)
         return x
 
-
-class GTNetwork(nn.Module):
+class AFTNetwork(nn.Module):
     def __init__(
         self,
         num_layers: int,
         embed_dim: int,
-        num_heads: int = 8,
         normalization: str = "batch",
         feedforward_hidden: int = 512,
-        gt_type: str = "aft",
-        moe_kwargs: Optional[dict] = None,
     ):
-        super(GTNetwork, self).__init__()
-
+        super().__init__()
         self.layers = nn.ModuleList(
             (
-                GTLayer(
+                AFTLayer(
                     embed_dim=embed_dim,
-                    num_heads=num_heads,
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
-                    gt_type = gt_type,
-                    moe_kwargs=moe_kwargs,
                 )
                 for _ in range(num_layers)
             )
         )
 
-    def forward(self, x: Tensor, dist: Tensor) -> Tensor:
+    def forward(self, x: Tensor, dist: Tensor, attn_mask: Tensor=None) -> Tensor:
         """Forward pass of the encoder
 
         Args:
             x: [batch_size, graph_size, embed_dim] initial embeddings to process
             dist: [batch_size, graph_size, graph_size]
+            attn_mask: [batch_size, ..., graph_size]
         """
         for layer in self.layers:
-            x = layer(x, dist)
+            x = layer(x, dist, attn_mask)
         return x
+
+
+class MatAFTLayer(nn.Module):
+    def __init__(
+        self,
+        embed_dim: int,
+        feedforward_hidden: int = 512,
+        normalization: Optional[str] = "batch",
+        bias: bool = False,
+    ):
+        super().__init__()
+        self.row_gt = AFTCrossAttention(embed_dim=embed_dim, bias=bias)
+        self.col_gt = AFTCrossAttention(embed_dim=embed_dim, bias=bias)
+        
+        self.F_a = TransformerFFN(embed_dim, feedforward_hidden, normalization)
+        self.F_b = TransformerFFN(embed_dim, feedforward_hidden, normalization)
+
+
+    def forward(self, row_emb, col_emb, dmat, attn_mask=None):
+        row_emb_out = self.row_gt(
+            row_emb, col_emb, dmat=dmat, cross_attn_mask=attn_mask
+        )
+        attn_mask_t = attn_mask.transpose(-2, -1) if attn_mask is not None else None
+        col_emb_out = self.col_gt(
+            col_emb,
+            row_emb,
+            dmat=dmat.transpose(-2, -1),
+            cross_attn_mask=attn_mask_t,
+        )
+
+        row_emb_out = self.F_a(row_emb_out, row_emb)
+        col_emb_out = self.F_b(col_emb_out, col_emb)
+
+        return row_emb_out, col_emb_out
+    
+class MatAFTNetwork(nn.Module):
+    def __init__(
+        self,
+        num_layers: int,
+        embed_dim: int,
+        normalization: str = "batch",
+        feedforward_hidden: int = 512,
+    ):
+        super().__init__()
+        self.layers = nn.ModuleList(
+            (
+                MatAFTLayer(
+                    embed_dim=embed_dim,
+                    feedforward_hidden=feedforward_hidden,
+                    normalization=normalization,
+                )
+                for _ in range(num_layers)
+            )
+        )
+
+    def forward(self, row_emb: Tensor, col_emb: Tensor, dmat: Tensor, attn_mask: Tensor=None):
+        """Forward pass of the encoder
+
+        Args:
+            row_emb: [b, m, d]
+            col_emb: [b, n, d]
+            dmat: [b, m, n]
+            attn_mask: [b, ..., n]
+        """
+        for layer in self.layers:
+            row_emb, col_emb = layer(row_emb, col_emb, dmat, attn_mask)
+        return row_emb, col_emb

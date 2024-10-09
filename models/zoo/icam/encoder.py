@@ -9,7 +9,7 @@ from torch import Tensor
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive import AutoregressiveEncoder
 from rl4co.models.nn.env_embeddings import env_init_embedding
-from models.nn.graph.attnnet import GTNetwork
+from models.nn.graph.attnnet import AFTNetwork
 
 
 class ICAMEncoder(AutoregressiveEncoder):
@@ -32,15 +32,12 @@ class ICAMEncoder(AutoregressiveEncoder):
     def __init__(
         self,
         embed_dim: int = 128,
-        gt_type: str = "aft",
         init_embedding: nn.Module = None,
         env_name: str = "tsp",
-        num_heads: int = 8,
         num_layers: int = 3,
         normalization: str = "instance",
         feedforward_hidden: int = 512,
         net: nn.Module = None,
-        moe_kwargs: dict = None,
     ):
         super(ICAMEncoder, self).__init__()
 
@@ -55,14 +52,11 @@ class ICAMEncoder(AutoregressiveEncoder):
         )
 
         self.net = (
-            GTNetwork(
+            AFTNetwork(
                 num_layers = num_layers,
                 embed_dim = embed_dim,
-                num_heads = num_heads,
                 normalization = normalization,
                 feedforward_hidden = feedforward_hidden,
-                gt_type = gt_type,
-                moe_kwargs = moe_kwargs,
             )
             if net is None
             else net
