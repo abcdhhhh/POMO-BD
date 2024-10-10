@@ -124,11 +124,10 @@ class AFTPointerAttention(PointerAttention):
         # Apply the provided attention mask
         if attn_mask is not None:
             if attn_mask.dtype != torch.bool:
-                attn_mask = (attn_mask == -torch.inf)
+                attn_mask = (attn_mask != -torch.inf)
             w.masked_fill_(~attn_mask, 0.)
         if w.ndim == 2:
             w = w.unsqueeze(1)
-        w = torch.exp(w)
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
         glimpse = q * (wkv / wk)
