@@ -37,8 +37,8 @@ class AFTAttention(nn.Module):
             self.Wqkv(x), "b s (three d) -> three b s d", three=3,
         ).unbind(dim=0)
         q = F.sigmoid(q)
-        k = torch.exp(k)
-        w = -self.alpha * math.log2(x.size(-1)) * dist - self.beta * torch.eye(x.size(-1), device=x.device)
+        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
+        w = -self.alpha * math.log2(x.size(-2)) * dist - self.beta * torch.eye(x.size(-2), device=x.device)
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
                 w.masked_fill_(~attn_mask, float("-inf"))
@@ -78,7 +78,7 @@ class AFTCrossAttention(nn.Module):
             self.Wkv(kv_input), "b n (two d) -> two b n d", two=2,
         ).unbind(dim=0)
         q = F.sigmoid(q)
-        k = torch.exp(k)
+        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
         w = -self.alpha * math.log2(k.size(-2)) * dmat
         if cross_attn_mask is not None:
             if cross_attn_mask.ndim == 2:
@@ -120,7 +120,7 @@ class AFTPointerAttention(PointerAttention):
                 as described in the [PyTorch Documentation](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
         """
         q = F.sigmoid(q)
-        k = torch.exp(k)
+        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
         # Apply the provided attention mask
         if attn_mask is not None:
             if attn_mask.dtype != torch.bool:

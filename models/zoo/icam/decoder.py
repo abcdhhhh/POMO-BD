@@ -122,7 +122,7 @@ class ICAMDecoder(AttentionModelDecoder):
             locs = unbatchify(locs, num_starts)
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
-        n = locs.size(-1)
+        n = locs.size(-2)
         bias = self.alpha * math.log2(n) * torch.cdist(locs, locs, p=2)
         if self.pointer_type == "aft":
             bias_aft = self.alpha_aft * math.log2(n) * torch.cdist(locs, locs, p=2) + self.beta_aft * torch.eye(n, device=bias.device)
