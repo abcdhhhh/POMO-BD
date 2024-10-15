@@ -139,9 +139,15 @@ class ICAM(REINFORCE):
 
         # Evaluate policy
         # Set multisample=True to sample solutions with same start
-        out = self.policy(
-            td, env=self.env, phase=phase, num_starts=n_start, multisample=True, return_actions=True
-        )
+        decode_type = getattr(self.policy, f"{phase}_decode_type")
+        if "multistart" in decode_type:
+            out = self.policy(
+                td, env=self.env, phase=phase, num_starts=n_start, multistart=True,
+            )
+        else:
+            out = self.policy(
+                td, env=self.env, phase=phase, num_samples=n_start, multisample=True,
+            )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
         reward = unbatchify(out["reward"], (n_aug, n_start))

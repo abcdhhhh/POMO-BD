@@ -1,9 +1,9 @@
 # train/val/test
 mode: train
-env_name: atsp
-num_loc: 100
-embed_dim: 256
-num_heads: 16
+env_name: tsp
+num_loc: 500
+embed_dim: 128
+num_heads: 8
 save_dir: ./outputs/
 ckpt_path: null
 
@@ -13,8 +13,8 @@ env:
     num_loc: ${num_loc}
   check_solution: False # optimization
   data_dir: ./data/
-  # val_file: ${env_name}/${env_name}${num_loc}_val_seed4321.npz
-  # test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
+  val_file: ${env_name}/${env_name}${num_loc}_val_seed4321.npz
+  test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
   # val_file: vrp/vrp${num_loc}_val_seed4321.npz
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
   # val_file: op/op_dist${num_loc}_val_seed4321.npz
@@ -30,11 +30,11 @@ logger:
   name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}_${env_name}${num_loc}-${trainer.precision}
 
 model:
-  batch_size: 50
-  val_batch_size: 500
+  batch_size: 256
+  val_batch_size: 32
   test_batch_size: ${model.val_batch_size}
-  train_data_size: 10000
-  val_data_size: 10000
+  train_data_size: 256000
+  val_data_size: 128
   test_data_size: ${model.val_data_size}
   # set 'symmetric' if num_augment not in [1, 8], otherwise 'dihedral' (default)
   # augment_fn: symmetric
@@ -51,23 +51,23 @@ model:
     val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham'
-    encoder: mataft
+    encoder: aft
     # choose from 'cab', 'am', 'matnet'
     decoder: cab
     # if decoder is 'cab', then choose from 'aft', 'poly', 'null', else set 'null'
     pointer: aft
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
-    tanh_clipping: 10.
-    num_encoder_layers: 5
+    tanh_clipping: 50.
+    num_encoder_layers: 12
     normalization: instance
   optimizer_kwargs:
-    lr: 4e-4
+    lr: 1e-4
     weight_decay: 0.
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:
-    milestones: [800]
+    milestones: [80, 95]
     gamma: 0.1
   metrics:
     train: ["loss", "reward", "max_reward"]
@@ -76,10 +76,10 @@ model:
     log_on_step: True
 
 trainer:
-  max_epochs: 1000
+  max_epochs: 100
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: wandb
+  logger: null
   default_root_dir: ${save_dir}
 
 ckpt:

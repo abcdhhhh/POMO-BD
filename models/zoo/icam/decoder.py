@@ -77,7 +77,6 @@ class ICAMDecoder(AttentionModelDecoder):
         )
         if self.pointer_type == "aft":
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
-            self.beta_aft = nn.Parameter(torch.tensor(0.))
         self.alpha = nn.Parameter(torch.tensor(1.))
         
 
@@ -123,9 +122,10 @@ class ICAMDecoder(AttentionModelDecoder):
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
         n = locs.size(-2)
-        bias = self.alpha * math.log2(n) * torch.cdist(locs, locs, p=2)
+        dist = torch.cdist(locs, locs, p=2)
+        bias = self.alpha * math.log2(n) * dist
         if self.pointer_type == "aft":
-            bias_aft = self.alpha_aft * math.log2(n) * torch.cdist(locs, locs, p=2) + self.beta_aft * torch.eye(n, device=bias.device)
+            bias_aft = self.alpha_aft * math.log2(n) * dist
             bias_aft = torch.exp(-bias_aft)
             bias = torch.stack([bias_aft, bias], dim=0)
 
