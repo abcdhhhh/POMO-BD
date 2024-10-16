@@ -130,6 +130,17 @@ class ICAM(REINFORCE):
                 td["stochastic_prize"] = td["stochastic_prize"][:, :num_loc] * 500 / num_loc
                 td["visited"] = td["visited"][:, :num_loc+1]
 
+        if self.env.name == "atsp":
+            dms = td["cost_matrix"]
+            while True:
+                old_dms = dms.clone()
+                dms, _ = (
+                    dms[..., :, None, :] + dms[..., None, :, :].transpose(-2, -1)
+                ).min(dim=-1)
+                if (dms == old_dms).all():
+                    break
+            td["cost_matrix"] = dms
+
 
         # During training, we do not augment the data
         if phase == "train":

@@ -104,9 +104,13 @@ class MatAFTEncoder(AutoregressiveEncoder):
         self.env_name = env_name
 
         if init_embedding is None:
-            init_embedding = env_init_embedding(
-                "matnet", {"embed_dim": embed_dim, **init_embedding_kwargs}
+            init_embedding = MatAFTInitEmbedding(
+                embed_dim=embed_dim,
+                **init_embedding_kwargs,
             )
+            # init_embedding = env_init_embedding(
+            #     "matnet", {"embed_dim": embed_dim, **init_embedding_kwargs}
+            # )
         self.init_embedding = init_embedding
         self.net = (
             MatAFTNetwork(
@@ -141,3 +145,25 @@ class MatAFTEncoder(AutoregressiveEncoder):
 
         # Return latent representation and initial embedding
         return (row_emb, col_emb), None
+
+
+class MatAFTInitEmbedding(nn.Module):
+
+    def __init__(self, embed_dim: int, linear_bias=True, topk: int = 50) -> None:
+        super().__init__()
+
+        self.embed_dim = embed_dim
+        self.topk = topk
+        self.row_init_embed = nn.Linear(topk, embed_dim, linear_bias)
+        self.col_init_embed = nn.Linear(topk, embed_dim, linear_bias)
+
+    def forward(self, td: TensorDict):
+        dmat = td["cost_matrix"]
+
+        row_topk = dmat.topk(k=self.topk, dim=-1, largest=False, sorted=True)[0]
+        row_emb = self.row_init_embed(row_topk)
+
+        col_topk = dmat.transpose(-2, -1).topk(k=self.topk, dim=-1, largest=False, sorted=True)[0]
+        col_emb = self.col_init_embed(col_topk)
+
+        return row_emb, col_emb, dmat
