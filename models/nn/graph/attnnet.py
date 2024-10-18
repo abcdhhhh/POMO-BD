@@ -70,19 +70,19 @@ class MatAFTLayer(nn.Module):
         bias: bool = False,
     ):
         super().__init__()
-        self.row_gt = AFTCrossAttention(embed_dim=embed_dim, bias=bias)
-        self.col_gt = AFTCrossAttention(embed_dim=embed_dim, bias=bias)
+        self.row_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias)
+        self.col_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias)
         
         self.F_a = TransformerFFN(embed_dim, feedforward_hidden, normalization)
         self.F_b = TransformerFFN(embed_dim, feedforward_hidden, normalization)
 
 
     def forward(self, row_emb, col_emb, dmat, attn_mask=None):
-        row_emb_out = self.row_gt(
+        row_emb_out = self.row_aft(
             row_emb, col_emb, dmat=dmat, cross_attn_mask=attn_mask
         )
         attn_mask_t = attn_mask.transpose(-2, -1) if attn_mask is not None else None
-        col_emb_out = self.col_gt(
+        col_emb_out = self.col_aft(
             col_emb,
             row_emb,
             dmat=dmat.transpose(-2, -1),

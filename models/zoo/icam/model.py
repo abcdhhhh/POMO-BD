@@ -132,13 +132,8 @@ class ICAM(REINFORCE):
 
         if self.env.name == "atsp":
             dms = td["cost_matrix"]
-            while True:
-                old_dms = dms.clone()
-                dms, _ = (
-                    dms[..., :, None, :] + dms[..., None, :, :].transpose(-2, -1)
-                ).min(dim=-1)
-                if (dms == old_dms).all():
-                    break
+            for i in range(dms.size(-1)):
+                dms = torch.minimum(dms, dms[..., :, [i]] + dms[..., [i], :])
             td["cost_matrix"] = dms
 
 

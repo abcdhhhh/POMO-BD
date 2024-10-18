@@ -148,7 +148,9 @@ class MatAFTEncoder(AutoregressiveEncoder):
 
 
 class MatAFTInitEmbedding(nn.Module):
-
+    """
+    Set embeddings by top k (default 50) values of each row and column
+    """
     def __init__(self, embed_dim: int, linear_bias=True, topk: int = 50) -> None:
         super().__init__()
 
