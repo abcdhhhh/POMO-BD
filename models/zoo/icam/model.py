@@ -149,11 +149,11 @@ class ICAM(REINFORCE):
         decode_type = getattr(self.policy, f"{phase}_decode_type")
         if "multistart" in decode_type:
             out = self.policy(
-                td, env=self.env, phase=phase, num_starts=n_start, multistart=True,
+                td, env=self.env, phase=phase, num_starts=n_start, multistart=True, select_best=False,
             )
         else:
             out = self.policy(
-                td, env=self.env, phase=phase, num_samples=n_start, multisample=True,
+                td, env=self.env, phase=phase, num_samples=n_start, multisample=True, select_best=False,
             )
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
