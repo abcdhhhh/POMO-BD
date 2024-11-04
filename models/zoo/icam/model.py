@@ -66,7 +66,7 @@ class ICAM(REINFORCE):
         n_aug, n_start = self.num_augment, self.num_starts
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
 
-        if phase == "train":
+        if phase == "train" and False:
             # downsample td for curriculum training
             if self.env.name == "tsp":
                 if self.current_epoch < 100:
@@ -130,11 +130,10 @@ class ICAM(REINFORCE):
                 td["stochastic_prize"] = td["stochastic_prize"][:, :num_loc] * 500 / num_loc
                 td["visited"] = td["visited"][:, :num_loc+1]
 
-        if self.env.name == "atsp":
-            dms = td["cost_matrix"]
-            if not self.env.generator.tmat_class:
-                for i in range(dms.size(-1)):
-                    dms = torch.minimum(dms, dms[..., :, [i]] + dms[..., [i], :])
+        if phase == "train" and self.env.name == "atsp" and not self.env.generator.tmat_class:
+            dms = td["cost_matrix"] 
+            for i in range(dms.size(-1)):
+                dms = torch.minimum(dms, dms[..., :, [i]] + dms[..., [i], :])
             td["cost_matrix"] = dms
 
 
