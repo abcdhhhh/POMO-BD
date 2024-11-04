@@ -220,7 +220,11 @@ class ICAMDecoder(AttentionModelDecoder):
         else:
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
             bias = gather_by_index(cached.bias, current_node)
-        logits = logits - bias
+
+        if self.env_name in ["tsp", "atsp"] and (td["i"] == 0).any():
+            pass # not connected
+        else:
+            logits = logits - bias
         
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here
