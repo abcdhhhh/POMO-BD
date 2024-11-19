@@ -33,7 +33,7 @@ class ICAMPolicy(AutoregressivePolicy):
             init_embedding: nn.Module = None,
             context_embedding: nn.Module = None,
             dynamic_embedding: nn.Module = None,
-            use_graph_context: bool = True,
+            use_graph_context: bool = False,
             linear_bias_decoder: bool = False,
             sdpa_fn_encoder: Callable = None,
             sdpa_fn_decoder: Callable = None,

@@ -14,18 +14,51 @@ from models.zoo.icam.model import ICAM
 
 @hydra.main(config_path="./configs/", config_name="icam.yaml", version_base="1.3")
 def run(cfg: DictConfig):
+    torch.manual_seed(cfg.get("seed", 1234))
     L.seed_everything(cfg.get("seed", 1234))
 
     env_params = cfg.env
-    env = get_env(**env_params)
+    if cfg.env_name in ["symop", "sympdp"]:
+        from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
+        model_params_dict = OmegaConf.to_container(cfg.model, resolve=True)
 
-    model = ICAM(
-        env=env,
-        **cfg.model,
-    )
+        if cfg.env_name == "symop":
+            from envs.symop.env import SymOPEnv
+            del env_params.env_name
+            env = SymOPEnv(**env_params)
+            from models.nn.env_embeddings.symop import SymOPContext, SymOPInitEmbedding
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": SymOPInitEmbedding(cfg.embed_dim),
+                "context_embedding": SymOPContext(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            })  
+        elif cfg.env_name == "sympdp":
+            from envs.sympdp.env import SymPDPEnv
+            del env_params.env_name
+            env = SymPDPEnv(**env_params)
+            from models.nn.env_embeddings.sympdp import SymPDPContext, SymPDPInitEmbedding
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": SymPDPInitEmbedding(cfg.embed_dim),
+                "context_embedding": SymPDPContext(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            }) 
+            
+        model = ICAM(
+            env=env,
+            **model_params_dict,
+        )
+    else:
+        env = get_env(**env_params)
+
+        model = ICAM(
+            env=env,
+            **cfg.model,
+        )
+
     if cfg.ckpt_path:
         ckpt_state_dict = torch.load(cfg.ckpt_path, weights_only=False)['state_dict']
         model.load_state_dict(ckpt_state_dict, strict=True)
+
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(cfg.save_dir, "checkpoints", cfg.logger.name),
         **cfg.ckpt,

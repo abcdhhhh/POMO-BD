@@ -221,7 +221,7 @@ class ICAMDecoder(AttentionModelDecoder):
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
             bias = gather_by_index(cached.bias, current_node)
 
-        if self.env_name in ["tsp", "atsp"] and (td["i"] == 0).any():
+        if self.env_name in ["tsp", "atsp", "symop"] and td["i"][(0,) * td["i"].dim()].item() < 1:
             pass # not connected
         else:
             logits = logits - bias

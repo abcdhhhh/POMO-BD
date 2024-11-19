@@ -2,6 +2,7 @@ from typing import Any, Union, Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from tensordict import TensorDict
 
@@ -29,18 +30,13 @@ class ICAM(REINFORCE):
         num_starts: int = None,
         elite_k: int = 1,
         elite_alpha: float = 0.,
+        po_alpha: float = 0.,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
 
         if policy is None:
-            policy_kwargs_with_defaults = {
-                "num_encoder_layers": 12,
-                "normalization": "instance",
-                "use_graph_context": False,
-            }
-            policy_kwargs_with_defaults.update(policy_kwargs)
-            policy = ICAMPolicy(env_name=env.name, **policy_kwargs_with_defaults)
+            policy = ICAMPolicy(env_name=env.name, **policy_kwargs)
 
         super(ICAM, self).__init__(env, policy, baseline, **kwargs)
 
@@ -58,6 +54,7 @@ class ICAM(REINFORCE):
 
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
+        self.po_alpha = po_alpha
     
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
@@ -95,7 +92,7 @@ class ICAM(REINFORCE):
                 td["capacity"].fill_(capacity)
                 td["locs"] = td["locs"][:, :num_loc+1, :]
                 td["visited"] = td["visited"][:, :num_loc+1]
-            elif self.env.name == "op":
+            elif self.env.name in ["op", "symop"]:
                 if self.current_epoch < 100:
                     num_loc = 100
                     batch_size = 256
@@ -106,9 +103,12 @@ class ICAM(REINFORCE):
                 td = td[:batch_size]
                 td["action_mask"] = td["action_mask"][:, :num_loc+1]
                 td["locs"] = td["locs"][:, :num_loc+1, :]
-                td["max_length"] = td["max_length"][:, :num_loc+1]
                 td["prize"] = td["prize"][:, :num_loc+1]
                 td["visited"] = td["visited"][:, :num_loc+1]
+
+                if self.env.name == "op":
+                    td["max_length"] = td["max_length"][:, :num_loc+1]
+                    
             elif self.env.name in ["pctsp", "spctsp"]:
                 if self.current_epoch < 100:
                     num_loc = 100
@@ -129,12 +129,11 @@ class ICAM(REINFORCE):
                 td["real_prize"] = td["real_prize"][:, :num_loc+1] * 500 / num_loc
                 td["stochastic_prize"] = td["stochastic_prize"][:, :num_loc] * 500 / num_loc
                 td["visited"] = td["visited"][:, :num_loc+1]
-
-        if phase == "train" and self.env.name == "atsp" and not self.env.generator.tmat_class:
-            dms = td["cost_matrix"] 
-            for i in range(dms.size(-1)):
-                dms = torch.minimum(dms, dms[..., :, [i]] + dms[..., [i], :])
-            td["cost_matrix"] = dms
+            if self.env.name == "atsp" and not self.env.generator.tmat_class:
+                dms = td["cost_matrix"] 
+                for i in range(dms.size(-1)):
+                    dms = torch.minimum(dms, dms[..., :, [i]] + dms[..., [i], :])
+                td["cost_matrix"] = dms
 
 
         # During training, we do not augment the data
@@ -220,28 +219,33 @@ class ICAM(REINFORCE):
             log_likelihood if log_likelihood is not None else policy_out["log_likelihood"]
         )
 
-        # REINFORCE baseline
-        bl_val, bl_loss = (
-            self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
-        )
-
-        # Main loss function
-        advantage = reward - bl_val  # advantage = reward - baseline
-        reinforce_loss = -(advantage * log_likelihood).mean()
-
-        if self.elite_alpha != 0:
-            top_reward, top_idx = reward.topk(self.elite_k, dim=1)
-            top_loss = -(advantage * log_likelihood).gather(1, top_idx).mean()
-            loss = self.elite_alpha * top_loss + (1 - self.elite_alpha) * reinforce_loss + bl_loss
+        if self.po_alpha != 0:
+            # following PO (https://openreview.net/forum?id=8QkpCRio53)
+            preference = reward[:, :, None] > reward[:, None, :] 
+            log_prob_pair = log_likelihood[:, :, None] - log_likelihood[:, None, :] 
+            pf_log = torch.log(F.sigmoid(self.po_alpha * log_prob_pair)) 
+            loss = -(pf_log * preference).mean()
+            
         else:
-            loss = reinforce_loss + bl_loss
+            # REINFORCE baseline
+            bl_val, bl_loss = (
+                self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
+            )
+
+            # Main loss function
+            advantage = reward - bl_val  # advantage = reward - baseline
+            reinforce_loss = -(advantage * log_likelihood).mean()
+
+            if self.elite_alpha != 0:
+                top_reward, top_idx = reward.topk(self.elite_k, dim=1)
+                top_loss = -(advantage * log_likelihood).gather(1, top_idx).mean()
+                loss = self.elite_alpha * top_loss + (1 - self.elite_alpha) * reinforce_loss + bl_loss
+            else:
+                loss = reinforce_loss + bl_loss
 
         policy_out.update(
             {
                 "loss": loss,
-                "reinforce_loss": reinforce_loss,
-                "bl_loss": bl_loss,
-                "bl_val": bl_val,
             }
         )
         return policy_out
