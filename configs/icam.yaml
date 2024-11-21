@@ -1,6 +1,6 @@
 # train/val/test
 mode: train
-env_name: symspctsp
+env_name: symop
 num_loc: 20
 embed_dim: 128
 num_heads: 8
@@ -17,10 +17,10 @@ env:
   # test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
   # val_file: vrp/vrp${num_loc}_val_seed4321.npz
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
-  # val_file: op/op_dist${num_loc}_val_seed4321.npz
-  # test_file: op/op_dist${num_loc}_test_seed1234.npz
-  val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
-  test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
+  val_file: op/op_dist${num_loc}_val_seed4321.npz
+  test_file: op/op_dist${num_loc}_test_seed1234.npz
+  # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
+  # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
   # val_file: pdp/pdp${num_loc}_val_seed4321.npz
   # test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
@@ -40,12 +40,12 @@ model:
   test_data_size: ${model.val_data_size}
   # set 'symmetric' if num_augment not in [1, 8], otherwise 'dihedral' (default)
   # augment_fn: symmetric
-  num_augment: 1
+  num_augment: 0
   elite_k: 1
   elite_alpha: 0.
   po_alpha: 0.
   # set '0' if not use multistart, '${num_loc}' if use pomo
-  num_starts: 101
+  num_starts: ${num_loc}
   # set 'rollout' for am, 'shared' for pomo
   baseline: shared
   policy_kwargs:

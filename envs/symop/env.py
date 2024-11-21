@@ -6,6 +6,7 @@ from tensordict.tensordict import TensorDict
 from torchrl.data import Bounded, Composite, Unbounded
 from rl4co.utils.ops import gather_by_index, get_tour_length
 from rl4co.envs.common.utils import batch_to_scalar
+from einops import rearrange
 
 from rl4co.data.dataset import FastTdDataset
 from rl4co.envs.common.base import RL4COEnvBase
@@ -162,7 +163,8 @@ class SymOPEnv(RL4COEnvBase):
         Cannot visit if already visited, if depot has been visited, or if the length exceeds the maximum length.
         """
         if batch_to_scalar(td["i"]) == 0:
-            return torch.ones_like(td["visited"]) # TODO: consider max_length < 2.83
+            depot_length = (td["locs"] - td["locs"][..., 0:1, :]).norm(p=2, dim=-1)
+            return depot_length * 2 + 1e-6 <= td["max_length"][..., None]
         
         current_loc = gather_by_index(td["locs"], td["current_node"])[..., None, :]
         step_length = (current_loc - td["locs"]).norm(p=2, dim=-1)
@@ -274,6 +276,21 @@ class SymOPEnv(RL4COEnvBase):
         )
         self.reward_spec = Unbounded(shape=(1,))
         self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
+
+    def select_start_nodes(self, td, num_starts):
+        num_loc_with_depot = td["locs"].shape[-2]
+        selected = (
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
+            % num_loc_with_depot
+        )
+        if (td["action_mask"].float().sum(-1) < num_loc_with_depot).any():
+            # for the orienteering problem, we may have some nodes that are not available
+            # so we need to resample from the distribution of available nodes
+            selected = torch.multinomial(
+                td["action_mask"].float(), num_starts, replacement=True
+            )
+            selected = rearrange(selected, "b n -> (n b)")
+        return selected
 
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
