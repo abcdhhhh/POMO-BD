@@ -1,7 +1,7 @@
 # train/val/test
 mode: train
-env_name: pdp
-num_loc: 100
+env_name: symspctsp
+num_loc: 20
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
@@ -19,10 +19,10 @@ env:
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
   # val_file: op/op_dist${num_loc}_val_seed4321.npz
   # test_file: op/op_dist${num_loc}_test_seed1234.npz
-  # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
-  # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
-  val_file: pdp/pdp${num_loc}_val_seed4321.npz
-  test_file: pdp/pdp${num_loc}_test_seed1234.npz
+  val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
+  test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
+  # val_file: pdp/pdp${num_loc}_val_seed4321.npz
+  # test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
 logger:
   project: "rl4co"
@@ -45,7 +45,7 @@ model:
   elite_alpha: 0.
   po_alpha: 0.
   # set '0' if not use multistart, '${num_loc}' if use pomo
-  num_starts: 50
+  num_starts: 101
   # set 'rollout' for am, 'shared' for pomo
   baseline: shared
   policy_kwargs:
@@ -84,7 +84,7 @@ trainer:
   max_epochs: 2000
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: wandb
+  logger: null
   default_root_dir: ${save_dir}
 
 ckpt:

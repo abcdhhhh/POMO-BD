@@ -68,16 +68,16 @@ class SymOPEnv(RL4COEnvBase):
         current_node = td["action"]
         current_loc = gather_by_index(td["locs"], current_node)
         if batch_to_scalar(td["i"]) < 1:
-            last_node = current_node
+            first_node = current_node
             # max_length is max length allowed when arriving at node, so subtract distance to visit depot and get back
             # Additionally, substract epsilon margin for numeric stability
-            last_depot_length = (td["locs"] - td["locs"][..., 0:1, :]).norm(p=2, dim=-1) + (td["locs"][..., 0, :] - current_loc)[..., None, :].norm(p=2, dim=-1)
-            last_length = (td["locs"] - current_loc[..., None, :]).norm(p=2, dim=-1) 
+            first_depot_length = (td["locs"] - td["locs"][..., 0:1, :]).norm(p=2, dim=-1) + (td["locs"][..., 0:1, :] - current_loc[..., None, :]).norm(p=2, dim=-1)
+            first_length = (td["locs"] - current_loc[..., None, :]).norm(p=2, dim=-1) 
             td.update(
                 {
-                    "last_node": last_node,
-                    "last_depot_length": last_depot_length,
-                    "last_length": last_length,
+                    "first_node": first_node,
+                    "first_depot_length": first_depot_length,
+                    "first_length": first_length,
                 }
             )
         else:
@@ -94,7 +94,8 @@ class SymOPEnv(RL4COEnvBase):
         visited = td["visited"].scatter(-1, current_node[..., None], 1)
 
         # Done if gone back (except if it's the first step)
-        done = (current_node.squeeze(-1) == td["last_node"].squeeze(-1)) & (td["i"] > 0)
+        done = (current_node == td["first_node"]) & (td["i"] > 0)
+
         reward = gather_by_index(
             td["prize"], current_node, dim=-1
         )
@@ -166,16 +167,16 @@ class SymOPEnv(RL4COEnvBase):
         current_loc = gather_by_index(td["locs"], td["current_node"])[..., None, :]
         step_length = (current_loc - td["locs"]).norm(p=2, dim=-1)
 
-        back_length = td["last_depot_length"]
+        back_length = td["first_depot_length"]
         allow = td["visited"][..., 0]
-        back_length[allow] = td["last_length"][allow]
+        back_length[allow] = td["first_length"][allow]
 
         exceeds_length = (
             td["tour_length"][..., None] + step_length + back_length + 1e-6
             > td["max_length"][..., None]
         )
         mask = td["visited"] | td["done"][..., None] | exceeds_length
-        mask[allow, td["last_node"][allow]] = 0
+        mask[allow, td["first_node"][allow]] = 0
         mask[~allow, 0] = 0
         
         action_mask = ~mask  # 1 = feasible action, 0 = infeasible action
@@ -186,8 +187,10 @@ class SymOPEnv(RL4COEnvBase):
         # Prize is the sum of the prizes of the visited nodes.
         visited = torch.zeros_like(td["visited"]).scatter(-1, actions, True)
         # assert (visited == td["visited"]).all()
+
         current_total_prize = (td["prize"] * visited).sum(dim=-1)
         # assert torch.allclose(current_total_prize, td["current_total_prize"])
+        
         return current_total_prize
 
     @staticmethod
@@ -200,11 +203,11 @@ class SymOPEnv(RL4COEnvBase):
         """
 
         # Check that tours are valid, i.e. contain 0 to n -1
-        last_node = actions[..., 0]
+        first_node = actions[..., 0]
         sorted_actions = actions.data.sort(1)[0]
-        # Make sure each node visited once at most (except for last node)
+        # Make sure each node visited once at most (except for first node)
         assert (
-            (sorted_actions[:, 1:] == last_node[..., None])
+            (sorted_actions[:, 1:] == first_node[..., None])
             | (sorted_actions[:, 1:] > sorted_actions[:, :-1])
         ).all(), "Duplicates"
         assert (sorted_actions[:, 0] == 0).all(), "Depot not visited"
@@ -241,15 +244,15 @@ class SymOPEnv(RL4COEnvBase):
                 shape=(generator.num_loc,),
                 dtype=torch.float32,
             ),
-            last_node=Unbounded(
+            first_node=Unbounded(
                 shape=(1,),
                 dtype=torch.int64,
             ),
-            last_length=Unbounded(
+            first_length=Unbounded(
                 shape=(generator.num_loc + 1,),
                 dtype=torch.float32,
             ),
-            last_depot_length=Unbounded(
+            first_depot_length=Unbounded(
                 shape=(generator.num_loc + 1,),
                 dtype=torch.float32,
             ),

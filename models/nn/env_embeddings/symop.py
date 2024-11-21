@@ -36,7 +36,7 @@ class SymOPInitEmbedding(nn.Module):
 class SymOPContext(EnvContext):
     """Context embedding for the Orienteering Problem (OP).
     Project the following to the embedding space:
-        - last node embedding
+        - first node embedding
         - current node embedding
         - remaining distance (max_length - tour_length)
     """
@@ -61,11 +61,11 @@ class SymOPContext(EnvContext):
                 )
         else:
             node_dim = (
-                (-1,) if td["last_node"].dim() == 1 else (td["last_node"].size(-1), -1)
+                (-1,) if td["first_node"].dim() == 1 else (td["first_node"].size(-1), -1)
             )
             context_embedding = gather_by_index(
                 embeddings,
-                torch.stack([td["last_node"], td["current_node"]], -1).view(
+                torch.stack([td["first_node"], td["current_node"]], -1).view(
                     batch_size, -1
                 ),
             ).view(batch_size, *node_dim)

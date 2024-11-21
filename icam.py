@@ -18,7 +18,7 @@ def run(cfg: DictConfig):
     L.seed_everything(cfg.get("seed", 1234))
 
     env_params = cfg.env
-    if cfg.env_name in ["symop", "sympdp"]:
+    if cfg.env_name in ["symop", "sympctsp", "symspctsp", "sympdp"]:
         from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
         model_params_dict = OmegaConf.to_container(cfg.model, resolve=True)
 
@@ -32,6 +32,21 @@ def run(cfg: DictConfig):
                 "context_embedding": SymOPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             })  
+        elif cfg.env_name in ["sympctsp", "symspctsp"]:
+            if cfg.env_name == "sympctsp":
+                from envs.sympctsp.env import SymPCTSPEnv
+                del env_params.env_name
+                env = SymPCTSPEnv(**env_params)
+            elif cfg.env_name == "symspctsp":
+                from envs.symspctsp.env import SymSPCTSPEnv
+                del env_params.env_name
+                env = SymSPCTSPEnv(**env_params)
+            from models.nn.env_embeddings.sympctsp import SymPCTSPContext, SymPCTSPInitEmbedding
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": SymPCTSPInitEmbedding(cfg.embed_dim),
+                "context_embedding": SymPCTSPContext(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            }) 
         elif cfg.env_name == "sympdp":
             from envs.sympdp.env import SymPDPEnv
             del env_params.env_name
