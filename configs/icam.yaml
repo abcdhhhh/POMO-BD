@@ -1,6 +1,6 @@
 # train/val/test
 mode: train
-env_name: symop
+env_name: sympctsp
 num_loc: 20
 embed_dim: 128
 num_heads: 8
@@ -17,10 +17,10 @@ env:
   # test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
   # val_file: vrp/vrp${num_loc}_val_seed4321.npz
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
-  val_file: op/op_dist${num_loc}_val_seed4321.npz
-  test_file: op/op_dist${num_loc}_test_seed1234.npz
-  # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
-  # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
+  # val_file: op/op_dist${num_loc}_val_seed4321.npz
+  # test_file: op/op_dist${num_loc}_test_seed1234.npz
+  val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
+  test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
   # val_file: pdp/pdp${num_loc}_val_seed4321.npz
   # test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
