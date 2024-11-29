@@ -1,7 +1,7 @@
 # train/val/test
 mode: train
-env_name: sympctsp
-num_loc: 20
+env_name: pdp
+num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
@@ -11,7 +11,7 @@ env:
   env_name: ${env_name}
   generator_params:
     num_loc: ${num_loc}
-  check_solution: True # optimization
+  check_solution: False # optimization
   data_dir: ./data/
   # val_file: ${env_name}/${env_name}${num_loc}_val_seed4321.npz
   # test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
@@ -19,10 +19,10 @@ env:
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
   # val_file: op/op_dist${num_loc}_val_seed4321.npz
   # test_file: op/op_dist${num_loc}_test_seed1234.npz
-  val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
-  test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
-  # val_file: pdp/pdp${num_loc}_val_seed4321.npz
-  # test_file: pdp/pdp${num_loc}_test_seed1234.npz
+  # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
+  # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
+  val_file: pdp/pdp${num_loc}_val_seed4321.npz
+  test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
 logger:
   project: "rl4co"
@@ -33,29 +33,29 @@ logger:
 
 model:
   batch_size: 64
-  val_batch_size: 500
+  val_batch_size: 200
   test_batch_size: ${model.val_batch_size}
-  train_data_size: 100000
+  train_data_size: 160000
   val_data_size: 10000
   test_data_size: ${model.val_data_size}
   # set 'symmetric' if num_augment not in [1, 8], otherwise 'dihedral' (default)
   # augment_fn: symmetric
-  num_augment: 0
+  num_augment: 8
   elite_k: 1
   elite_alpha: 0.
   po_alpha: 0.
   # set '0' if not use multistart, '${num_loc}' if use pomo
-  num_starts: ${num_loc}
+  num_starts: 101 # ${num_loc}
   # set 'rollout' for am, 'shared' for pomo
   baseline: shared
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: multistart_sampling
+    train_decode_type: sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: multistart_greedy
+    val_decode_type: greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham'
-    encoder: am
+    encoder: ham
     # choose from 'cab', 'am', 'matnet'
     decoder: am
     # if decoder is 'cab', then choose from 'aft', 'poly', 'null', else set 'null'
@@ -68,7 +68,7 @@ model:
     use_graph_context: False
   optimizer_kwargs:
     lr: 1e-4
-    weight_decay: 0.
+    weight_decay: 1e-6
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:
@@ -84,7 +84,7 @@ trainer:
   max_epochs: 2000
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: null
+  logger: wandb
   default_root_dir: ${save_dir}
 
 ckpt:
@@ -92,7 +92,7 @@ ckpt:
   filename: "{epoch:02d}_{val/reward:.4f}_{val/max_reward:.4f}"
   auto_insert_metric_name: False
   save_top_k: 3
-  save_last: True 
+  save_last: True
   mode: max
 
 seed: 1234

@@ -26,7 +26,7 @@ class AFTAttention(nn.Module):
         factory_kwargs = {"device": device, "dtype": dtype}
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
         self.alpha = nn.Parameter(torch.tensor(1.))
-        self.beta = nn.Parameter(torch.tensor(0.))
+        # self.beta = nn.Parameter(torch.tensor(0.))
     
     def forward(self, x: torch.Tensor, dist: torch.Tensor, attn_mask=None):
         """
@@ -38,7 +38,7 @@ class AFTAttention(nn.Module):
         ).unbind(dim=0)
         q = F.sigmoid(q)
         k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
-        w = -self.alpha * math.log2(x.size(-2)) * dist - self.beta * torch.eye(x.size(-2), device=x.device)
+        w = -self.alpha * math.log2(x.size(-2)) * dist # - self.beta * torch.eye(x.size(-2), device=x.device)
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
                 w.masked_fill_(~attn_mask, float("-inf"))

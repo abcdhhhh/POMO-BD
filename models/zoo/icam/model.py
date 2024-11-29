@@ -145,6 +145,10 @@ class ICAM(REINFORCE):
         # Evaluate policy
         # Set multisample=True to sample solutions with same start
         decode_type = getattr(self.policy, f"{phase}_decode_type")
+        
+        if decode_type == "greedy":
+            n_start = 0
+
         if "multistart" in decode_type:
             out = self.policy(
                 td, env=self.env, phase=phase, num_starts=n_start, multistart=True, select_best=False,

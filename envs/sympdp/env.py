@@ -74,7 +74,6 @@ class SymPDPEnv(RL4COEnvBase):
         # Pickup and delivery node pair of selected node
         is_delivery = current_node > num_loc // 2
         new_to_deliver = (current_node + num_loc // 2 - 1) % num_loc + 1
-        
 
         # Set available to 0 (i.e., we visited the node)
         available = td["available"].scatter(
