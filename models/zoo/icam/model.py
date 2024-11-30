@@ -26,6 +26,7 @@ class ICAM(REINFORCE):
         num_augment: int = 8,
         augment_fn: Union[str, callable] = "dihedral8",
         first_aug_identity: bool = True,
+        train_aug: bool = True,
         feats: list = None,
         num_starts: int = None,
         elite_k: int = 1,
@@ -52,6 +53,7 @@ class ICAM(REINFORCE):
         else:
             self.augment = None
 
+        self.train_aug = train_aug
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
         self.po_alpha = po_alpha
@@ -137,7 +139,7 @@ class ICAM(REINFORCE):
 
 
         # During training, we do not augment the data
-        if phase == "train":
+        if phase == "train" and not self.train_aug:
             n_aug = 0
         elif n_aug > 1:
             td = self.augment(td)
@@ -164,10 +166,15 @@ class ICAM(REINFORCE):
         # Training phase
         if phase == "train":
             log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
-            self.calculate_loss(td, batch, out, reward, log_likelihood)
             if n_start > 1:
                 max_reward, max_idxs = reward.max(dim=-1)
                 out.update({"max_reward": max_reward})
+            if n_aug > 1:
+                reward_ = max_reward if n_start > 1 else reward
+                max_aug_reward, max_idxs = reward_.max(dim=1)
+                out.update({"max_aug_reward": max_aug_reward})
+
+            self.calculate_loss(td, batch, out, reward.flatten(1), log_likelihood.flatten(1))
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_start > 1:
