@@ -46,9 +46,10 @@ class SymPCTSPContext(EnvContext):
     """
 
     def __init__(self, embed_dim):
-        super(SymPCTSPContext, self).__init__(embed_dim, 2 * embed_dim + 1)
+        super(SymPCTSPContext, self).__init__(embed_dim, embed_dim + 1)
+        self.project_first = nn.Linear(embed_dim, embed_dim, bias=False)
         self.W_placeholder = nn.Parameter(
-            torch.Tensor(2 * self.embed_dim + 1).uniform_(-1, 1)
+            torch.Tensor(self.embed_dim).uniform_(-1, 1)
         )
 
     def forward(self, embeddings, td):
@@ -63,25 +64,22 @@ class SymPCTSPContext(EnvContext):
                 context_embedding = self.W_placeholder[None, None, :].expand(
                     batch_size, td.batch_size[1], -1
                 )
+            self.first_context = None
+            return context_embedding
         else:
-            node_dim = (
-                (-1,) if td["first_node"].dim() == 1 else (td["first_node"].size(-1), -1)
-            )
-            context_embedding = gather_by_index(
-                embeddings,
-                torch.stack([td["first_node"], td["current_node"]], -1).view(
-                    batch_size, -1
-                ),
-            ).view(batch_size, *node_dim)
+            if self.first_context is None:
+                first_node_embedding = gather_by_index(embeddings, td["first_node"])
+                self.first_context = self.project_first(first_node_embedding)
+            
             context_embedding = torch.cat(
                 [
-                    context_embedding, 
+                    self._cur_node_embedding(embeddings, td),
                     torch.clamp(
                         td["prize_required"] - td["cur_total_prize"], min=0
                     )[..., None], 
                 ], 
                 dim=-1,
             )
-        return self.project_context(context_embedding)
+            return self.project_context(context_embedding) + self.first_context
 
     

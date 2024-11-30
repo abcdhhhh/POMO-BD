@@ -40,9 +40,10 @@ class SymPDPContext(EnvContext):
     """
 
     def __init__(self, embed_dim):
-        super(SymPDPContext, self).__init__(embed_dim, 2 * embed_dim)
+        super(SymPDPContext, self).__init__(embed_dim, embed_dim)
+        self.project_first = nn.Linear(embed_dim, embed_dim, bias=False)
         self.W_placeholder = nn.Parameter(
-            torch.Tensor(2 * self.embed_dim).uniform_(-1, 1)
+            torch.Tensor(self.embed_dim).uniform_(-1, 1)
         )
 
     def forward(self, embeddings, td):
@@ -57,16 +58,14 @@ class SymPDPContext(EnvContext):
                 context_embedding = self.W_placeholder[None, None, :].expand(
                     batch_size, td.batch_size[1], -1
                 )
+            self.first_context = None
+            return context_embedding
         else:
-            node_dim = (
-                (-1,) if td["first_node"].dim() == 2 else (td["first_node"].size(-2), -1)
-            )
-            context_embedding = gather_by_index(
-                embeddings,
-                torch.stack([td["first_node"], td["current_node"]], -1).view(
-                    batch_size, -1
-                ),
-            ).view(batch_size, *node_dim)
-        return self.project_context(context_embedding)
+            if self.first_context is None:
+                first_node_embedding = gather_by_index(embeddings, td["first_node"])
+                self.first_context = self.project_first(first_node_embedding)
+            
+            context_embedding = self._cur_node_embedding(embeddings, td)
+            return self.project_context(context_embedding) + self.first_context
 
     
