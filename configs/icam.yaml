@@ -1,6 +1,6 @@
 # train/val/test
 mode: train
-env_name: pdp
+env_name: sympdp
 num_loc: 100
 embed_dim: 128
 num_heads: 8
@@ -29,7 +29,7 @@ logger:
   tags: ["${env_name}"]
   group: "${env_name}${num_loc}"
   save_dir: ${save_dir}
-  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${env_name}${num_loc}-${model.num_starts}${model.train_aug}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.val_decode_type}-po${model.po_alpha}
+  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${env_name}${num_loc}-${model.num_starts}*${model.num_augment_train}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.val_decode_type}-po${model.po_alpha}
 
 model:
   batch_size: 8
@@ -38,8 +38,8 @@ model:
   train_data_size: 20000
   val_data_size: 10000
   test_data_size: ${model.val_data_size}
-  # if set 'True', divide train_{data,batch}_size by num_augment for fair comparison 
-  train_aug: True 
+  # if > 1, divide train_{data,batch}_size by num_augment_train for fair comparison 
+  num_augment_train: 8
   num_augment: 8
   # set 'symmetric' if num_augment not in [1, 8], otherwise 'dihedral' (default)
   # augment_fn: symmetric
@@ -86,7 +86,7 @@ trainer:
   max_epochs: 2000
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: wandb
+  logger: null
   default_root_dir: ${save_dir}
 
 ckpt:

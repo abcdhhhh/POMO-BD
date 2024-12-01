@@ -63,7 +63,7 @@ class SymOPContext(EnvContext):
             self.first_context = None
             return context_embedding
         else:
-            if self.first_context is None:
+            if td["i"][(0,) * td["i"].dim()].item() == 1:
                 first_node_embedding = gather_by_index(embeddings, td["first_node"])
                 self.first_context = self.project_first(first_node_embedding)
 
@@ -74,9 +74,7 @@ class SymOPContext(EnvContext):
                 ], 
                 dim=-1,
             )
-            try:
-                return self.project_context(context_embedding) + self.first_context
-            except:
-                import pdb; pdb.set_trace()
+            return self.project_context(context_embedding) + self.first_context
+
 
     

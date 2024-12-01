@@ -23,10 +23,10 @@ class ICAM(REINFORCE):
         policy: Union[str, nn.Module] = None,
         policy_kwargs={},
         baseline: str = "shared",
+        num_augment_train: int = 0,
         num_augment: int = 8,
         augment_fn: Union[str, callable] = "dihedral8",
         first_aug_identity: bool = True,
-        train_aug: bool = True,
         feats: list = None,
         num_starts: int = None,
         elite_k: int = 1,
@@ -53,7 +53,7 @@ class ICAM(REINFORCE):
         else:
             self.augment = None
 
-        self.train_aug = train_aug
+        self.num_augment_train = num_augment_train
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
         self.po_alpha = po_alpha
@@ -139,9 +139,9 @@ class ICAM(REINFORCE):
 
 
         # During training, we do not augment the data
-        if phase == "train" and not self.train_aug:
-            n_aug = 0
-        elif n_aug > 1:
+        if phase == "train":
+            n_aug = self.num_augment_train
+        if n_aug > 1:
             td = self.augment(td)
 
         # Evaluate policy
