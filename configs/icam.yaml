@@ -42,12 +42,13 @@ model:
   num_augment_train: 8
   num_augment: 8
   # set 'symmetric' if num_augment not in [1, 8], otherwise 'dihedral' (default)
+  # augment_fn_train: symmetric
   # augment_fn: symmetric
   elite_k: 1
   elite_alpha: 0.
   po_alpha: 0.05
   # set '0' for am, '${num_loc}' for pomo, ${num_loc}+1 for sym{op,(s)pctsp,pdp}, ${num_loc}/2 for pdp
-  num_starts: 50 # ${num_loc}
+  num_starts: 101 # ${num_loc}
   # set 'rollout' for am, 'shared' for pomo
   baseline: shared
   policy_kwargs:
@@ -77,7 +78,7 @@ model:
     milestones: []
     gamma: 0.1
   metrics:
-    train: ["loss", "reward", "max_reward", "max_aug_reward"]
+    train: ["loss", "reward", "max_reward"]
     val: ["reward", "max_reward", "max_aug_reward"]
     test: ${model.metrics.val}
     log_on_step: True

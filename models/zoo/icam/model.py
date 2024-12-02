@@ -25,6 +25,7 @@ class ICAM(REINFORCE):
         baseline: str = "shared",
         num_augment_train: int = 0,
         num_augment: int = 8,
+        augment_fn_train: Union[str, callable] = "dihedral8",
         augment_fn: Union[str, callable] = "dihedral8",
         first_aug_identity: bool = True,
         feats: list = None,
@@ -43,6 +44,8 @@ class ICAM(REINFORCE):
 
         self.num_starts = num_starts
         self.num_augment = num_augment
+        self.num_augment_train = num_augment_train
+        
         if self.num_augment > 1:
             self.augment = StateAugmentation(
                 num_augment=self.num_augment,
@@ -50,10 +53,15 @@ class ICAM(REINFORCE):
                 first_aug_identity=first_aug_identity,
                 feats=feats,
             )
-        else:
-            self.augment = None
+        
+        if self.num_augment_train > 1:
+            self.augment_train = StateAugmentation(
+                num_augment=self.num_augment_train,
+                augment_fn=augment_fn_train,
+                first_aug_identity=first_aug_identity,
+                feats=feats,
+            )
 
-        self.num_augment_train = num_augment_train
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
         self.po_alpha = po_alpha
@@ -64,6 +72,10 @@ class ICAM(REINFORCE):
         td = self.env.reset(batch)
         n_aug, n_start = self.num_augment, self.num_starts
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
+        
+        # During training, we use num_augment_train
+        if phase == "train":
+            n_aug = self.num_augment_train
 
         if phase == "train" and False:
             # downsample td for curriculum training
@@ -138,11 +150,11 @@ class ICAM(REINFORCE):
                 td["cost_matrix"] = dms
 
 
-        # During training, we do not augment the data
-        if phase == "train":
-            n_aug = self.num_augment_train
         if n_aug > 1:
-            td = self.augment(td)
+            if phase == "train":
+                td = self.augment_train(td)
+            else:
+                td = self.augment(td)
 
         # Evaluate policy
         # Set multisample=True to sample solutions with same start
