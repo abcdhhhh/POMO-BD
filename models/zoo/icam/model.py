@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from tensordict import TensorDict
 
 from rl4co.data.transforms import StateAugmentation
+from transforms import CompositeAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from .policy import ICAMPolicy
@@ -23,10 +24,10 @@ class ICAM(REINFORCE):
         policy: Union[str, nn.Module] = None,
         policy_kwargs={},
         baseline: str = "shared",
-        num_augment_train: int = 0,
-        num_augment: int = 8,
-        augment_fn_train: Union[str, callable] = "dihedral8",
-        augment_fn: Union[str, callable] = "dihedral8",
+        num_augment_train_list: list = [],
+        num_augment_list: list = [],
+        augment_fn_train_list: list = [],
+        augment_fn_list: list = [],
         first_aug_identity: bool = True,
         feats: list = None,
         num_starts: int = None,
@@ -43,24 +44,28 @@ class ICAM(REINFORCE):
         super(ICAM, self).__init__(env, policy, baseline, **kwargs)
 
         self.num_starts = num_starts
-        self.num_augment = num_augment
-        self.num_augment_train = num_augment_train
         
-        if self.num_augment > 1:
-            self.augment = StateAugmentation(
-                num_augment=self.num_augment,
-                augment_fn=augment_fn,
+        if len(num_augment_list):
+            self.augment = CompositeAugmentation(
+                num_augment_list=num_augment_list,
+                augment_fn_list=augment_fn_list,
                 first_aug_identity=first_aug_identity,
                 feats=feats,
             )
+            self.num_augment = self.augment.n_aug
+        else:
+            self.num_augment = 0
         
-        if self.num_augment_train > 1:
-            self.augment_train = StateAugmentation(
-                num_augment=self.num_augment_train,
-                augment_fn=augment_fn_train,
+        if len(num_augment_train_list):
+            self.augment_train = CompositeAugmentation(
+                num_augment_list=num_augment_train_list,
+                augment_fn_list=augment_fn_train_list,
                 first_aug_identity=first_aug_identity,
                 feats=feats,
             )
+            self.num_augment_train = self.augment_train.n_aug
+        else:
+            self.num_augment_train = 0
 
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
@@ -69,13 +74,12 @@ class ICAM(REINFORCE):
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
-        td = self.env.reset(batch)
-        n_aug, n_start = self.num_augment, self.num_starts
-        n_start = self.env.get_num_starts(td) if n_start is None else n_start
+        td = self.env.reset(batch)    
         
-        # During training, we use num_augment_train
-        if phase == "train":
-            n_aug = self.num_augment_train
+        n_start = self.env.get_num_starts(td) if self.num_starts is None else self.num_starts
+        
+        # During training, we use num_augment_train     
+        n_aug = self.num_augment_train if phase == "train" else self.num_augment
 
         if phase == "train" and False:
             # downsample td for curriculum training
