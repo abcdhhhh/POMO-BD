@@ -11,6 +11,7 @@ from transforms import CompositeAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from .policy import ICAMPolicy
+from .losses import problem_symmetricity_loss, solution_symmetricity_loss, mixed_loss
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
@@ -31,6 +32,7 @@ class ICAM(REINFORCE):
         first_aug_identity: bool = True,
         feats: list = None,
         num_starts: int = None,
+        mix_loss: bool = False,
         elite_k: int = 1,
         elite_alpha: float = 0.,
         po_alpha: float = 0.,
@@ -67,6 +69,7 @@ class ICAM(REINFORCE):
         else:
             self.num_augment_train = 0
 
+        self.mix_loss = mix_loss
         self.elite_k = elite_k
         self.elite_alpha = elite_alpha
         self.po_alpha = po_alpha
@@ -246,29 +249,13 @@ class ICAM(REINFORCE):
             log_likelihood if log_likelihood is not None else policy_out["log_likelihood"]
         )
 
-        if self.po_alpha != 0:
-            # following PO (https://openreview.net/forum?id=8QkpCRio53)
-            preference = reward[:, :, None] > reward[:, None, :] 
-            log_prob_pair = log_likelihood[:, :, None] - log_likelihood[:, None, :] 
-            pf_log = torch.log(F.sigmoid(self.po_alpha * log_prob_pair)) 
-            loss = -(pf_log * preference).mean()
-            
+        assert self.baseline == "shared"
+        if self.mix_loss:
+            loss = mixed_loss(reward, log_likelihood, self.po_alpha, self.elite_k, self.elite_alpha)
         else:
-            # REINFORCE baseline
-            bl_val, bl_loss = (
-                self.baseline.eval(td, reward, self.env) if extra is None else (extra, 0)
-            )
-
-            # Main loss function
-            advantage = reward - bl_val  # advantage = reward - baseline
-            reinforce_loss = -(advantage * log_likelihood).mean()
-
-            if self.elite_alpha != 0:
-                top_reward, top_idx = reward.topk(self.elite_k, dim=1)
-                top_loss = -(advantage * log_likelihood).gather(1, top_idx).mean()
-                loss = self.elite_alpha * top_loss + (1 - self.elite_alpha) * reinforce_loss + bl_loss
-            else:
-                loss = reinforce_loss + bl_loss
+            loss_ps = problem_symmetricity_loss(reward, log_likelihood, 1, self.po_alpha, self.elite_k, self.elite_alpha)
+            loss_ss = solution_symmetricity_loss(reward, log_likelihood, -1, self.po_alpha, self.elite_k, self.elite_alpha)
+            loss = (loss_ps + loss_ss) / 2
 
         policy_out.update(
             {
