@@ -43,6 +43,8 @@ class ICAM(REINFORCE):
         if policy is None:
             policy = ICAMPolicy(env_name=env.name, **policy_kwargs)
 
+        assert baseline == "shared"
+
         super(ICAM, self).__init__(env, policy, baseline, **kwargs)
 
         self.num_starts = num_starts
@@ -120,7 +122,7 @@ class ICAM(REINFORCE):
                 else:
                     num_loc = torch.randint(100, 501, []).item()
                     batch_size = 1_600_000 // num_loc ** 2
-                n_start = num_loc
+                n_start = num_loc + 1 if "sym" in self.env.name else num_loc
                 td = td[:batch_size]
                 td["action_mask"] = td["action_mask"][:, :num_loc+1]
                 td["locs"] = td["locs"][:, :num_loc+1, :]
@@ -130,7 +132,7 @@ class ICAM(REINFORCE):
                 if self.env.name == "op":
                     td["max_length"] = td["max_length"][:, :num_loc+1]
                     
-            elif self.env.name in ["pctsp", "spctsp"]:
+            elif self.env.name in ["pctsp", "spctsp", "sympctsp", "symspctsp"]:
                 if self.current_epoch < 100:
                     num_loc = 100
                     penalty_factor = 4
@@ -139,7 +141,7 @@ class ICAM(REINFORCE):
                     num_loc = torch.randint(100, 501, []).item()
                     penalty_factor = torch.randint(4, 10, []).item()
                     batch_size = 1_600_000 // num_loc ** 2
-                n_start = num_loc
+                n_start = num_loc + 1 if "sym" in self.env.name else num_loc
                 td = td[:batch_size]
                 td["action_mask"] = td["action_mask"][:, :num_loc+1]
                 td["deterministic_prize"] = td["deterministic_prize"][:, :num_loc] * 500 / num_loc
@@ -249,7 +251,6 @@ class ICAM(REINFORCE):
             log_likelihood if log_likelihood is not None else policy_out["log_likelihood"]
         )
 
-        assert self.baseline == "shared"
         if self.mix_loss:
             loss = mixed_loss(reward, log_likelihood, self.po_alpha, self.elite_k, self.elite_alpha)
         else:
