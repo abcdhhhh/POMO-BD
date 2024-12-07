@@ -195,7 +195,7 @@ class ICAM(REINFORCE):
                 max_aug_reward, max_idxs = reward_.max(dim=1)
                 out.update({"max_aug_reward": max_aug_reward})
 
-            self.calculate_loss(td, batch, out, reward.flatten(1), log_likelihood.flatten(1))
+            self.calculate_loss(td, batch, out, reward, log_likelihood)
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_start > 1:
