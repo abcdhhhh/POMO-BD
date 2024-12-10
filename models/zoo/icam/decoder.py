@@ -39,6 +39,7 @@ class ICAMDecoder(AttentionModelDecoder):
         sdpa_fn: callable = None,
         pointer: Union[nn.Module, str] = None,
         moe_kwargs: dict = None,
+        twice_glimpse: bool = False,
     ):
         self.encoder_type = encoder_type
         self.pointer_type = pointer
@@ -78,6 +79,7 @@ class ICAMDecoder(AttentionModelDecoder):
         if self.pointer_type == "aft":
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
         self.alpha = nn.Parameter(torch.tensor(1.))
+        self.twice_glimpse = twice_glimpse
         
 
     def pre_decoder_hook(
@@ -215,9 +217,15 @@ class ICAMDecoder(AttentionModelDecoder):
         mask = td["action_mask"]
         if self.pointer_type == "aft":
             bias_aft = gather_by_index(cached.bias[0], current_node)
+            if self.twice_glimpse:
+                attn_mask = td["available"]
+                glimpse_q = self.pointer._inner_aft(glimpse_q, glimpse_k, glimpse_v, bias_aft.clone(), attn_mask)
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias_aft, mask)
             bias = gather_by_index(cached.bias[1], current_node)
         else:
+            if self.twice_glimpse:
+                attn_mask = td["available"]
+                glimpse_q = self.pointer._inner_mha(glimpse_q, glimpse_k, glimpse_v, attn_mask)
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
             bias = gather_by_index(cached.bias, current_node)
 

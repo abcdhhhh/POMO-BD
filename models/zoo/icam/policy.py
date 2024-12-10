@@ -48,6 +48,7 @@ class ICAMPolicy(AutoregressivePolicy):
         val_decode_type: str = "sampling",
         test_decode_type: str = "sampling",
         moe_kwargs: dict = {"encoder": None, "decoder": None},
+        twice_glimpse: bool = False,
         **kwargs
     ):
         encoder_type = "mataft" if encoder in ["mataft", "matnet"] else "aft"
@@ -124,6 +125,7 @@ class ICAMPolicy(AutoregressivePolicy):
                 sdpa_fn=sdpa_fn_decoder,
                 pointer=pointer,
                 moe_kwargs=moe_kwargs["decoder"],
+                twice_glimpse=twice_glimpse,
             )
         elif decoder == "am":
             from rl4co.models.zoo.am.decoder import AttentionModelDecoder

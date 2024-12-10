@@ -1,7 +1,7 @@
 # train/val/test
 mode: train
-env_name: pdp
-num_loc: 50
+env_name: sympdp
+num_loc: 20
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
@@ -29,13 +29,13 @@ logger:
   tags: ["${env_name}"]
   group: "${env_name}${num_loc}"
   save_dir: ${save_dir}
-  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${env_name}${num_loc}-${model.num_starts}${model.num_augment_train_list}${model.mix_loss}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.val_decode_type}-po${model.po_alpha}
+  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${env_name}${num_loc}-${model.num_starts}${model.num_augment_train_list}${model.mix_loss}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.val_decode_type}-po${model.po_alpha}-twice${model.policy_kwargs.twice_glimpse}
 
 model:
   batch_size: 256
   val_batch_size: 500
   test_batch_size: ${model.val_batch_size}
-  train_data_size: 160000
+  train_data_size: 256000
   val_data_size: 10000
   test_data_size: ${model.val_data_size}
 
@@ -54,15 +54,15 @@ model:
   po_alpha: 0.05
   
   # set '0' for am, '${num_loc}' for tsp, cvrp, ${num_loc}+1 for sym{op,(s)pctsp,pdp}, ${num_loc}/2 for pdp
-  num_starts: 25 # ${num_loc}
+  num_starts: 21 # ${num_loc}
   # now only support 'shared'
   baseline: shared
 
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: multistart_sampling
+    train_decode_type: sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: multistart_greedy
+    val_decode_type: greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham'
     encoder: ham
@@ -76,6 +76,8 @@ model:
     num_encoder_layers: 6
     normalization: instance
     use_graph_context: False
+    # now only work for cab decoder
+    twice_glimpse: True
   optimizer_kwargs:
     lr: 3e-4
     weight_decay: 1e-6
