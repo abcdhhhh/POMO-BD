@@ -20,8 +20,9 @@ def problem_symmetricity_loss(reward, log_likelihood, dim=1, po_alpha=0., elite_
         advantage = reward - reward.mean(dim=dim, keepdim=True)
         loss = -(advantage * log_likelihood).mean()
         if elite_alpha != 0:
+            elite_k = min(elite_k, reward.shape[dim])
             top_reward, top_idx = reward.topk(elite_k, dim=dim)
-            top_loss = -(advantage * log_likelihood).gather(1, top_idx).mean()
+            top_loss = -(advantage * log_likelihood).gather(dim, top_idx).mean()
             loss = elite_alpha * top_loss + (1 - elite_alpha) * loss
     return loss
 
@@ -44,8 +45,9 @@ def solution_symmetricity_loss(reward, log_likelihood, dim=-1, po_alpha=0., elit
         advantage = reward - reward.mean(dim=dim, keepdim=True)
         loss = -(advantage * log_likelihood).mean()
         if elite_alpha != 0:
+            elite_k = min(elite_k, reward.shape[dim])
             top_reward, top_idx = reward.topk(elite_k, dim=dim)
-            top_loss = -(advantage * log_likelihood).gather(1, top_idx).mean()
+            top_loss = -(advantage * log_likelihood).gather(dim, top_idx).mean()
             loss = elite_alpha * top_loss + (1 - elite_alpha) * loss     
     return loss
 
