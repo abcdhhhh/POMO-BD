@@ -39,7 +39,6 @@ class ICAMDecoder(AttentionModelDecoder):
         sdpa_fn: callable = None,
         pointer: Union[nn.Module, str] = None,
         moe_kwargs: dict = None,
-        twice_glimpse: bool = False,
     ):
         self.encoder_type = encoder_type
         self.pointer_type = pointer
@@ -79,12 +78,6 @@ class ICAMDecoder(AttentionModelDecoder):
         if self.pointer_type == "aft":
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
         self.alpha = nn.Parameter(torch.tensor(1.))
-        self.twice_glimpse = twice_glimpse
-        if twice_glimpse:
-            self.project_node_embeddings = nn.Linear(
-                embed_dim, 5 * embed_dim, bias=linear_bias
-            )
-            self.project_q = nn.Linear(embed_dim, embed_dim, bias=linear_bias)
         
 
     def pre_decoder_hook(
@@ -111,15 +104,11 @@ class ICAMDecoder(AttentionModelDecoder):
             num_starts: Number of starts for the multi-start decoding
         """
         # The projection of the node embeddings for the attention is calculated once up front
-        glimpse = self.project_node_embeddings(embeddings)
-        if self.twice_glimpse:
-            glimpse_key_fixed = glimpse[..., :self.embed_dim * 2]
-            glimpse_val_fixed = glimpse[..., self.embed_dim * 2: self.embed_dim * 4]
-            logit_key_fixed = glimpse[..., self.embed_dim * 4:]
-        else:
-            glimpse_key_fixed = glimpse[..., :self.embed_dim]
-            glimpse_val_fixed = glimpse[..., self.embed_dim: self.embed_dim * 2]
-            logit_key_fixed = glimpse[..., self.embed_dim * 2:]
+        (
+            glimpse_key_fixed,
+            glimpse_val_fixed,
+            logit_key_fixed,
+        ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
         # Optionally disable the graph context from the initial embedding as done in POMO
         if self.use_graph_context:
@@ -154,15 +143,11 @@ class ICAMDecoder(AttentionModelDecoder):
         self, td, embeddings: torch.Tensor, num_starts: int = 0
     ) -> BiasCache:
         col_emb, row_emb = embeddings
-        glimpse = self.project_node_embeddings(embeddings)
-        if self.twice_glimpse:
-            glimpse_key_fixed = glimpse[..., :self.embed_dim * 2]
-            glimpse_val_fixed = glimpse[..., self.embed_dim * 2: self.embed_dim * 4]
-            logit_key_fixed = glimpse[..., self.embed_dim * 4:]
-        else:
-            glimpse_key_fixed = glimpse[..., :self.embed_dim]
-            glimpse_val_fixed = glimpse[..., self.embed_dim: self.embed_dim * 2]
-            logit_key_fixed = glimpse[..., self.embed_dim * 2:]
+        (
+            glimpse_key_fixed,
+            glimpse_val_fixed,
+            logit_key_fixed,
+        ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
 
         # Optionally disable the graph context from the initial embedding as done in POMO
         if self.use_graph_context:
@@ -224,24 +209,13 @@ class ICAMDecoder(AttentionModelDecoder):
         if (num_starts > 1 and current_node.ndim == 3) or (num_starts == 1 and current_node.ndim == 2):
             current_node = current_node.squeeze(-1)
         
-        # Compute logits
-        if self.twice_glimpse:
-            attn_mask = td["available"] if "available" in td else ~td["visited"]
-            glimpse_k0, glimpse_k = rearrange(glimpse_k, "... (two d) -> two ... d", two=2).unbind(dim=0)
-            glimpse_v0, glimpse_v = rearrange(glimpse_v, "... (two d) -> two ... d", two=2).unbind(dim=0)
-                
+        # Compute logits    
         mask = td["action_mask"]
         if self.pointer_type == "aft":
             bias_aft = gather_by_index(cached.bias[0], current_node)
-            if self.twice_glimpse:
-                glimpse_q = glimpse_q + self.pointer._inner_aft(glimpse_q, glimpse_k0, glimpse_v0, bias_aft.clone(), attn_mask)
-                glimpse_q = self.project_q(glimpse_q)
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias_aft, mask)
             bias = gather_by_index(cached.bias[1], current_node)
         else:
-            if self.twice_glimpse:
-                glimpse_q = glimpse_q + self.pointer._inner_mha(glimpse_q, glimpse_k0, glimpse_v0, attn_mask)
-                glimpse_q = self.project_q(glimpse_q)
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
             bias = gather_by_index(cached.bias, current_node)
 
