@@ -15,9 +15,9 @@ class SymPDPInitEmbedding(nn.Module):
     def __init__(self, embed_dim, linear_bias=True):
         super(SymPDPInitEmbedding, self).__init__()
         node_dim = 2  # x, y
-        self.init_embed_depot = nn.Linear(2, embed_dim, linear_bias)
+        self.init_embed_depot = nn.Linear(node_dim, embed_dim, linear_bias)
         self.init_embed_pick = nn.Linear(node_dim * 2, embed_dim, linear_bias)
-        self.init_embed_delivery = nn.Linear(node_dim, embed_dim, linear_bias)
+        self.init_embed_delivery = nn.Linear(node_dim * 2, embed_dim, linear_bias)
 
     def forward(self, td):
         depot, locs = td["locs"][..., 0:1, :], td["locs"][..., 1:, :]
@@ -25,7 +25,7 @@ class SymPDPInitEmbedding(nn.Module):
         pick_feats = torch.cat(
             [locs[:, : num_locs // 2, :], locs[:, num_locs // 2 :, :]], -1
         )  # [batch_size, graph_size//2, 4]
-        delivery_feats = locs[:, num_locs // 2 :, :]  # [batch_size, graph_size//2, 2]
+        delivery_feats = pick_feats # locs[:, num_locs // 2 :, :]  # [batch_size, graph_size//2, 2]
         depot_embeddings = self.init_embed_depot(depot)
         pick_embeddings = self.init_embed_pick(pick_feats)
         delivery_embeddings = self.init_embed_delivery(delivery_feats)
