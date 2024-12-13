@@ -9,7 +9,7 @@ from torch import Tensor
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive import AutoregressiveEncoder
 from rl4co.models.nn.env_embeddings import env_init_embedding
-from models.nn.graph.attnnet import AFTNetwork, MatAFTNetwork
+from .attnnet import AFTNetwork, MatAFTNetwork
 
 
 class AFTEncoder(AutoregressiveEncoder):

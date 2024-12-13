@@ -12,13 +12,13 @@ from rl4co.utils.decoding import (
 )
 from rl4co.utils.ops import calculate_entropy
 from rl4co.models.common.constructive.autoregressive.policy import AutoregressivePolicy
-from .encoder import AFTEncoder, MatAFTEncoder
-from .decoder import ICAMDecoder
+from models.zoo.icam.encoder import AFTEncoder, MatAFTEncoder
+from models.zoo.icam.decoder import ICAMDecoder
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
-class ICAMPolicy(AutoregressivePolicy):
+class ReSymPolicy(AutoregressivePolicy):
     def __init__(
         self,
         encoder: Union[str, nn.Module] = "aft",
@@ -160,7 +160,7 @@ class ICAMPolicy(AutoregressivePolicy):
                 moe_kwargs=moe_kwargs["decoder"],
             )
 
-        super(ICAMPolicy, self).__init__(
+        super(ReSymPolicy, self).__init__(
             encoder=encoder,
             decoder=decoder,
             env_name=env_name,

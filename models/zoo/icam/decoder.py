@@ -43,7 +43,7 @@ class ICAMDecoder(AttentionModelDecoder):
         self.encoder_type = encoder_type
         self.pointer_type = pointer
         if pointer == "aft":
-            from models.nn.attention import AFTPointerAttention
+            from .attention import AFTPointerAttention
             pointer = AFTPointerAttention(
                 mask_inner=mask_inner,
                 check_nan=check_nan,
@@ -219,7 +219,7 @@ class ICAMDecoder(AttentionModelDecoder):
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
             bias = gather_by_index(cached.bias, current_node)
 
-        if ("tsp" in self.env_name or "sym" in self.env_name) and td["i"][(0,) * td["i"].dim()].item() < 1:
+        if any(name in self.env_name for name in ["sym", "tsp", "shpp"]) and td["i"][(0,) * td["i"].dim()].item() < 1:
             pass # not connected
         else:
             logits = logits - bias

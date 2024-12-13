@@ -67,11 +67,11 @@ model:
     val_decode_type: greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham'
-    encoder: am
+    encoder: aft
     # choose from 'cab', 'am', 'matnet'
-    decoder: am
+    decoder: cab
     # if decoder is 'cab', then choose from 'aft', 'poly', 'null', else set 'null'
-    pointer: null
+    pointer: aft
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
     tanh_clipping: 10.
@@ -97,7 +97,7 @@ trainer:
   max_epochs: 2000
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: wandb
+  logger: null
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 

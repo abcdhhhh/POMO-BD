@@ -10,7 +10,7 @@ from rl4co.data.transforms import StateAugmentation
 from transforms import CompositeAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
-from .policy import ICAMPolicy
+from .policy import ReSymPolicy
 from .losses import problem_symmetricity_loss, solution_symmetricity_loss, mixed_loss
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
@@ -18,7 +18,7 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
-class ICAM(REINFORCE):
+class ReSym(REINFORCE):
     def __init__(
         self,
         env: RL4COEnvBase,
@@ -41,11 +41,11 @@ class ICAM(REINFORCE):
         self.save_hyperparameters(logger=False)
 
         if policy is None:
-            policy = ICAMPolicy(env_name=env.name, **policy_kwargs)
+            policy = ReSymPolicy(env_name=env.name, **policy_kwargs)
 
         assert baseline == "shared"
 
-        super(ICAM, self).__init__(env, policy, baseline, **kwargs)
+        super(ReSym, self).__init__(env, policy, baseline, **kwargs)
 
         self.num_starts = num_starts
         

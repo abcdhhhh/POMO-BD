@@ -10,9 +10,9 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from rl4co.utils.trainer import RL4COTrainer
 from rl4co.envs import get_env, ENV_REGISTRY
 
-from models.zoo.icam.model import ICAM
+from models.zoo.resym.model import ReSym
 
-@hydra.main(config_path="./configs/", config_name="icam.yaml", version_base="1.3")
+@hydra.main(config_path="./configs/", config_name="resym.yaml", version_base="1.3")
 def run(cfg: DictConfig):
     torch.manual_seed(cfg.get("seed", 1234))
     L.seed_everything(cfg.get("seed", 1234))
@@ -20,7 +20,7 @@ def run(cfg: DictConfig):
     env_params = cfg.env
     if cfg.env_name in ENV_REGISTRY:
         env = get_env(**env_params) 
-        model = ICAM(
+        model = ReSym(
             env=env,
             **cfg.model,
         )
@@ -78,7 +78,7 @@ def run(cfg: DictConfig):
                 "context_embedding": SHPPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             })    
-        model = ICAM(
+        model = ReSym(
             env=env,
             **model_params_dict,
         )
