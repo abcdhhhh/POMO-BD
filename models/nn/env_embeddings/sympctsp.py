@@ -46,15 +46,17 @@ class SymPCTSPContext(EnvContext):
     """
 
     def __init__(self, embed_dim):
-        super(SymPCTSPContext, self).__init__(embed_dim, embed_dim + 1)
-        self.project_first = nn.Linear(embed_dim, embed_dim, bias=False)
+        super(SymPCTSPContext, self).__init__(embed_dim, embed_dim * 2 + 1)
         self.W_placeholder = nn.Parameter(
-            torch.Tensor(self.embed_dim).uniform_(-1, 1)
+            torch.Tensor(self.embed_dim * 2 + 1).uniform_(-1, 1)
         )
 
     def forward(self, embeddings, td):
         batch_size = embeddings.size(0)
         # By default, node_dim = -1 (we only have one node embedding per node)
+        node_dim = (
+            (-1,) if td["current_node"].dim() == 1 else (td["current_node"].size(-1), -1)
+        )
         if td["i"][(0,) * td["i"].dim()].item() < 1:   # get first item fast
             if len(td.batch_size) < 2:
                 context_embedding = self.W_placeholder[None, :].expand(
@@ -64,22 +66,23 @@ class SymPCTSPContext(EnvContext):
                 context_embedding = self.W_placeholder[None, None, :].expand(
                     batch_size, td.batch_size[1], -1
                 )
-            self.first_context = None
-            return context_embedding
         else:
-            if td["i"][(0,) * td["i"].dim()].item() == 1:
-                first_node_embedding = gather_by_index(embeddings, td["first_node"])
-                self.first_context = self.project_first(first_node_embedding)
+            context_embedding = gather_by_index(
+                embeddings,
+                torch.stack([td["first_node"], td["current_node"]], -1).view(
+                    batch_size, -1
+                ),
+            ).view(batch_size, *node_dim)
             
             context_embedding = torch.cat(
                 [
-                    self._cur_node_embedding(embeddings, td),
+                    context_embedding, 
                     torch.clamp(
                         td["prize_required"] - td["cur_total_prize"], min=0
                     )[..., None], 
                 ], 
                 dim=-1,
             )
-            return self.project_context(context_embedding) + self.first_context
+        return self.project_context(context_embedding)
 
     

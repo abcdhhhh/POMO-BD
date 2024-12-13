@@ -8,7 +8,7 @@ from lightning.pytorch.loggers import WandbLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 
 from rl4co.utils.trainer import RL4COTrainer
-from rl4co.envs import get_env
+from rl4co.envs import get_env, ENV_REGISTRY
 
 from models.zoo.icam.model import ICAM
 
@@ -18,7 +18,13 @@ def run(cfg: DictConfig):
     L.seed_everything(cfg.get("seed", 1234))
 
     env_params = cfg.env
-    if cfg.env_name in ["symop", "sympctsp", "symspctsp", "sympdp"]:
+    if cfg.env_name in ENV_REGISTRY:
+        env = get_env(**env_params) 
+        model = ICAM(
+            env=env,
+            **cfg.model,
+        )
+    else:
         from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
         model_params_dict = OmegaConf.to_container(cfg.model, resolve=True)
 
@@ -57,17 +63,19 @@ def run(cfg: DictConfig):
                 "context_embedding": SymPDPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             }) 
-            
+        elif cfg.env_name == "shpp":
+            from envs.shpp.env import SHPPEnv
+            del env_params.env_name
+            env = SHPPEnv(**env_params)
+            from models.nn.env_embeddings.shpp import SHPPContext, SHPPInitEmbedding
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": SHPPInitEmbedding(cfg.embed_dim),
+                "context_embedding": SHPPContext(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            })    
         model = ICAM(
             env=env,
             **model_params_dict,
-        )
-    else:
-        env = get_env(**env_params)
-
-        model = ICAM(
-            env=env,
-            **cfg.model,
         )
 
     if cfg.ckpt_path:

@@ -66,7 +66,7 @@ class SymPDPEnv(RL4COEnvBase):
         self._make_spec(self.generator)
 
     def _step(self, td: TensorDict) -> TensorDict:
-        current_node = td["action"][..., None]
+        current_node = td["action"]
         first_node = current_node if td["i"].all() == 0 else td["first_node"]
 
         num_loc = td["locs"].shape[-2] - 1  # except depot
@@ -77,22 +77,21 @@ class SymPDPEnv(RL4COEnvBase):
 
         # Set available to 0 (i.e., we visited the node)
         available = td["available"].scatter(
-            -1, current_node, 0
+            -1, current_node[..., None], 0
         )
-        
         to_deliver = td["to_deliver"].scatter(
-            -1, new_to_deliver, ~is_delivery
+            -1, new_to_deliver[..., None], ~is_delivery[..., None]
         )
-        to_deliver[current_node[..., 0] == 0] = torch.tensor(
+        to_deliver[current_node == 0] = torch.tensor(
             [0] + [1] * (num_loc // 2) + [0] * (num_loc // 2),
             dtype=torch.bool,
             device=to_deliver.device,
         )
 
         expedit = td["expedit"].scatter(
-            -1, current_node, 0
+            -1, current_node[..., None], 0
         ).scatter(
-            -1, new_to_deliver, ~is_delivery
+            -1, new_to_deliver[..., None], ~is_delivery[..., None]
         )
 
         # We are done there are no unvisited locations
@@ -131,7 +130,7 @@ class SymPDPEnv(RL4COEnvBase):
         expedit = torch.zeros_like(available)
 
         # Other variables
-        current_node = torch.zeros(*batch_size, 1, dtype=torch.int64, device=device)
+        current_node = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
         i = torch.zeros(*batch_size, dtype=torch.int64, device=device)
 
         td_reset = TensorDict(
