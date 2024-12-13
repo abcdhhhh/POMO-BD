@@ -25,17 +25,9 @@ def render(td, actions=None, ax=None):
 
     locs = td["locs"]
 
-    # gather locs in order of action if available
-    if actions is None:
-        log.warning("No action in TensorDict, rendering unsorted locs")
-    else:
-        actions = actions.detach().cpu()
-        locs = gather_by_index(locs, actions, dim=0)
-
     start_x, start_y = locs[0, 0], locs[0, 1]
     end_x, end_y = locs[-1, 0], locs[-1, 1]
     city_x, city_y = locs[1:-1, 0], locs[1:-1, 1]
-    x, y = locs[:, 0], locs[:, 1]
 
     # Plot the start and end nodes
     ax.scatter(start_x, start_y, color="tab:green", marker="s")
@@ -43,6 +35,17 @@ def render(td, actions=None, ax=None):
 
     # Plot the visited nodes
     ax.scatter(city_x, city_y, color="tab:blue")
+
+    # gather locs in order of action if available
+    if actions is None:
+        log.warning("No action in TensorDict, rendering unsorted locs")
+    else:
+        actions = actions.detach().cpu()
+        locs = gather_by_index(locs, actions, dim=0)
+        
+    # Cat the first node to the end to complete the tour
+    locs = torch.cat((locs, locs[0:1]), dim=0)
+    x, y = locs[:, 0], locs[:, 1]
 
     # Add arrows between visited nodes as a quiver plot
     dx, dy = np.diff(x), np.diff(y)

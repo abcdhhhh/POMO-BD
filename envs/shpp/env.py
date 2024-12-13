@@ -68,12 +68,13 @@ class SHPPEnv(RL4COEnvBase):
 
         # Set not visited to 0 (i.e., we visited the node)
         available = td["available"].scatter(
-            -1, current_node.unsqueeze(-1).expand_as(td["action_mask"]), 0
+            -1, current_node[..., None], 0
         )
 
         # If all other nodes are visited, the terminating node will be available
-        action_mask = available.clone()
-        action_mask[..., -1] = ~available[..., :-1].any(dim=-1)
+        action_mask = available.scatter(
+            -1, last_node[..., None], (available.sum(dim=-1, keepdim=True) == 1)
+        )
 
         # We are done there are no unvisited locations
         done = torch.sum(available, dim=-1) == 0
@@ -104,13 +105,13 @@ class SHPPEnv(RL4COEnvBase):
         num_loc = locs.shape[-2]
 
         # Other variables
-        current_node = torch.zeros((batch_size), dtype=torch.int64, device=device)
+        current_node = torch.zeros(*batch_size, dtype=torch.int64, device=device)
         available = torch.ones(
             (*batch_size, num_loc), dtype=torch.bool, device=device
         )  # 1 means not visited, i.e. action is allowed
         action_mask = torch.zeros((*batch_size, num_loc), dtype=torch.bool, device=device)
         action_mask[..., 0] = action_mask[..., -1] = 1  # Only the endpoints are availabe at the beginning
-        i = torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
+        i = torch.zeros(*batch_size, dtype=torch.int64, device=device)
 
         return TensorDict(
             {
@@ -127,7 +128,7 @@ class SHPPEnv(RL4COEnvBase):
     def _get_reward(self, td, actions) -> TensorDict:
         # Gather locations in order of tour and return distance between them (i.e., -reward)
         locs_ordered = gather_by_index(td["locs"], actions)
-        return -get_tour_length(locs_ordered)
+        return -get_tour_length(locs_ordered) + (td["locs"][..., 0, :] - td["locs"][..., -1, :]).norm(p=2, dim=-1)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):

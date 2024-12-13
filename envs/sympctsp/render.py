@@ -68,10 +68,7 @@ def render(td, actions=None, ax=None):
         print("No action in TensorDict, rendering unsorted locs")
     else:
         # Reorder the customers and their corresponding prizes based on actions
-        tour = customers[actions - 1]  # subtract 1 to match Python's 0-indexing
-
-        # Append the depot at the beginning and the end of the tour
-        tour = np.vstack((depot, tour, depot))
+        tour = td["locs"][actions]
 
         # Use quiver to plot the tour
         dx, dy = np.diff(tour[:, 0]), np.diff(tour[:, 1])

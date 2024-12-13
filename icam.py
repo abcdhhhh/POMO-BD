@@ -63,10 +63,15 @@ def run(cfg: DictConfig):
                 "context_embedding": SymPDPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             }) 
-        elif cfg.env_name == "shpp":
-            from envs.shpp.env import SHPPEnv
-            del env_params.env_name
-            env = SHPPEnv(**env_params)
+        elif cfg.env_name in ["shpp", "symshpp"]:
+            if cfg.env_name == "shpp":
+                from envs.shpp.env import SHPPEnv
+                del env_params.env_name
+                env = SHPPEnv(**env_params)
+            elif cfg.env_name == "symshpp":
+                from envs.symshpp.env import SymSHPPEnv
+                del env_params.env_name
+                env = SymSHPPEnv(**env_params)
             from models.nn.env_embeddings.shpp import SHPPContext, SHPPInitEmbedding
             model_params_dict["policy_kwargs"].update({
                 "init_embedding": SHPPInitEmbedding(cfg.embed_dim),

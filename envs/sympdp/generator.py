@@ -5,7 +5,6 @@ import torch
 from tensordict.tensordict import TensorDict
 from torch.distributions import Uniform
 
-
 from rl4co.envs.common.utils import Generator, get_sampler
 from rl4co.utils.pylogger import get_pylogger
 
