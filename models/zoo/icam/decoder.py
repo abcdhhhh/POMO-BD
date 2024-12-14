@@ -147,7 +147,7 @@ class ICAMDecoder(AttentionModelDecoder):
             glimpse_key_fixed,
             glimpse_val_fixed,
             logit_key_fixed,
-        ) = self.project_node_embeddings(embeddings).chunk(3, dim=-1)
+        ) = self.project_node_embeddings(col_emb).chunk(3, dim=-1)
 
         # Optionally disable the graph context from the initial embedding as done in POMO
         if self.use_graph_context:

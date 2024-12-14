@@ -150,6 +150,7 @@ class MatAFTEncoder(AutoregressiveEncoder):
 class MatAFTInitEmbedding(nn.Module):
     """
     Set embeddings by top k (default 50) values of each row and column
+    Fill with average if n < k
     """
     def __init__(self, embed_dim: int, linear_bias=True, topk: int = 50) -> None:
         super().__init__()
@@ -160,12 +161,23 @@ class MatAFTInitEmbedding(nn.Module):
         self.col_init_embed = nn.Linear(topk, embed_dim, linear_bias)
 
     def forward(self, td: TensorDict):
-        dmat = td["cost_matrix"]
+        dmat: Tensor = td["cost_matrix"]
 
-        row_topk = dmat.topk(k=self.topk, dim=-1, largest=False, sorted=True)[0]
+        n = dmat.shape[-1]
+        if n < self.topk:
+            row_topk = torch.cat([
+                torch.sort(dmat, dim=-1)[0],
+                dmat.mean(dim=-1, keepdim=True).expand(*dmat.shape[:-1], self.topk - n),
+            ], dim=-1)
+            col_topk = torch.cat([ 
+                torch.sort(dmat.mT, dim=-1)[0],
+                dmat.mT.mean(dim=-1, keepdim=True).expand(*dmat.mT.shape[:-1], self.topk - n),
+            ], dim=-1)
+        else:
+            row_topk = dmat.topk(k=self.topk, dim=-1, largest=False, sorted=True)[0]
+            col_topk = dmat.mT.topk(k=self.topk, dim=-1, largest=False, sorted=True)[0]
+            
         row_emb = self.row_init_embed(row_topk)
-
-        col_topk = dmat.transpose(-2, -1).topk(k=self.topk, dim=-1, largest=False, sorted=True)[0]
         col_emb = self.col_init_embed(col_topk)
 
         return row_emb, col_emb, dmat

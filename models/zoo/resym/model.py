@@ -6,8 +6,7 @@ import torch.nn.functional as F
 
 from tensordict import TensorDict
 
-from rl4co.data.transforms import StateAugmentation
-from transforms import CompositeAugmentation
+from .transforms import CompositeAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from .policy import ReSymPolicy
@@ -43,7 +42,7 @@ class ReSym(REINFORCE):
         if policy is None:
             policy = ReSymPolicy(env_name=env.name, **policy_kwargs)
 
-        assert baseline == "shared"
+        assert baseline == "shared", "ReSym only supports shared baseline"
 
         super(ReSym, self).__init__(env, policy, baseline, **kwargs)
 
@@ -235,7 +234,7 @@ class ReSym(REINFORCE):
         reward: Optional[torch.Tensor] = None,
         log_likelihood: Optional[torch.Tensor] = None,
     ):
-        """Calculate loss following Poppy (https://arxiv.org/abs/2210.03475).
+        """Calculate loss following Sym-NCO and PO
 
         Args:
             td: TensorDict containing the current state of the environment
