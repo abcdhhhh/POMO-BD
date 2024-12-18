@@ -1,3 +1,7 @@
 [submodule "rl4co"]
 	path = rl4co
 	url = https://github.com/ai4co/rl4co
+
+[submodule "OPLib"]
+	path = OPLib
+	url = https://github.com/bcamath-ds/OPLib
