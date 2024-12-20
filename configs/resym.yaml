@@ -1,11 +1,11 @@
 # train/val/test
-mode: test
-env_name: sympctsp
-num_loc: 100
+mode: train
+env_name: pdp
+num_loc: 20
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/sympctsp100/98_-6.1046_-5.9619.ckpt
+ckpt_path: null
 
 env:
   env_name: ${env_name}
@@ -21,13 +21,13 @@ env:
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
   # val_file: op/op_dist${num_loc}_val_seed4321.npz
   # test_file: op/op_dist${num_loc}_test_seed1234.npz
-  val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
-  test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
-  # val_file: pdp/pdp${num_loc}_val_seed4321.npz
-  # test_file: pdp/pdp${num_loc}_test_seed1234.npz
+  # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
+  # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
+  val_file: pdp/pdp${num_loc}_val_seed4321.npz
+  test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
 logger:
-  project: resym
+  project: rl4co
   tags: ["${env_name}"]
   group: ${env_name}${num_loc}
   save_dir: ${save_dir}
@@ -52,26 +52,26 @@ model:
 
   mix_loss: False
   elite_k: 1
-  elite_alpha: 0.
-  po_alpha: 0.0
+  elite_alpha: 1.
+  po_alpha: 0.05
   
   # set '0' for am, '${num_loc}' for tsp, cvrp, ${num_loc}+1 for sym{op,(s)pctsp,pdp}, ${num_loc}/2 for pdp
-  num_starts: 101 # ${num_loc}
+  num_starts: ${num_loc}
   # now only support 'shared'
   baseline: shared
 
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: multistart_sampling
+    train_decode_type: sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: multistart_greedy
+    val_decode_type: sampling
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham'
-    encoder: am
+    encoder: aft
     # choose from 'cab', 'am', 'matnet'
-    decoder: am
-    # if decoder is 'cab', then choose from 'aft', 'poly', 'null', else set 'null'
-    pointer: null
+    decoder: cab
+    # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'null', else set 'null'
+    pointer: polyaft
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
     tanh_clipping: 10.
@@ -93,14 +93,6 @@ model:
     test: ${model.metrics.val}
     log_on_step: True
 
-trainer:
-  max_epochs: 100
-  precision: 32-true # set '32-true' if use aft encoder
-  # set 'wandb' if use wandb, 'null' otherwise
-  logger: null
-  default_root_dir: ${save_dir}
-  check_val_every_n_epoch: 1
-
 ckpt:
   monitor: val/reward
   filename: "{epoch:02d}_{val/reward:.4f}_{val/max_aug_reward:.4f}"
@@ -108,5 +100,13 @@ ckpt:
   save_top_k: 3
   save_last: True
   mode: max
+
+trainer:
+  max_epochs: 100
+  precision: 32-true # set '32-true' if use aft encoder
+  # set 'wandb' if use wandb, 'null' otherwise
+  logger: wandb
+  default_root_dir: ${save_dir}
+  check_val_every_n_epoch: 1
 
 seed: 1234

@@ -59,6 +59,15 @@ class ICAMDecoder(AttentionModelDecoder):
                 out_bias=out_bias_pointer_attn,
                 check_nan=check_nan,
             )
+        elif pointer == "polyaft":
+            from .attention import PolyNetAFTAttention
+            pointer = PolyNetAFTAttention(
+                k=128,
+                embed_dim=embed_dim,
+                poly_layer_dim=embed_dim*2,
+                mask_inner=mask_inner,
+                check_nan=check_nan,
+            )
 
         super().__init__(
             embed_dim=embed_dim,
@@ -75,7 +84,7 @@ class ICAMDecoder(AttentionModelDecoder):
             pointer=pointer,
             moe_kwargs=moe_kwargs,
         )
-        if self.pointer_type == "aft":
+        if "aft" in self.pointer_type:
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
         self.alpha = nn.Parameter(torch.tensor(1.))
         
@@ -124,7 +133,7 @@ class ICAMDecoder(AttentionModelDecoder):
         n = locs.size(-2)
         dist = torch.cdist(locs, locs, p=2)
         bias = self.alpha * math.log2(n) * dist
-        if self.pointer_type == "aft":
+        if "aft" in self.pointer_type:
             bias_aft = self.alpha_aft * math.log2(n) * dist
             bias_aft = torch.exp(-bias_aft)
             bias = torch.stack([bias_aft, bias], dim=0)
@@ -162,7 +171,7 @@ class ICAMDecoder(AttentionModelDecoder):
             dmat = dmat[:, 0]
         n = dmat.size(-1)
         bias = self.alpha * math.log2(n) * dmat
-        if self.pointer_type == "aft":
+        if "aft" in self.pointer_type:
             bias_aft = self.alpha_aft * math.log2(n) * dmat
             bias_aft = torch.exp(-bias_aft)
             bias = torch.stack([bias_aft, bias], dim=0)
@@ -211,7 +220,7 @@ class ICAMDecoder(AttentionModelDecoder):
         
         # Compute logits    
         mask = td["action_mask"]
-        if self.pointer_type == "aft":
+        if "aft" in self.pointer_type:
             bias_aft = gather_by_index(cached.bias[0], current_node)
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias_aft, mask)
             bias = gather_by_index(cached.bias[1], current_node)
