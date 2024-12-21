@@ -10,7 +10,7 @@ from .transforms import CompositeAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from .policy import ReSymPolicy
-from .losses import problem_symmetricity_loss, solution_symmetricity_loss, mixed_loss
+from .losses import symmetricity_loss, mixed_loss
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
@@ -32,8 +32,7 @@ class ReSym(REINFORCE):
         feats: list = None,
         num_starts: int = None,
         mix_loss: bool = False,
-        elite_k: int = 1,
-        elite_alpha: float = 0.,
+        poppy: bool = False,
         po_alpha: float = 0.,
         **kwargs,
     ):
@@ -71,8 +70,7 @@ class ReSym(REINFORCE):
             self.num_augment_train = 0
 
         self.mix_loss = mix_loss
-        self.elite_k = elite_k
-        self.elite_alpha = elite_alpha
+        self.poppy = poppy
         self.po_alpha = po_alpha
     
     def shared_step(
@@ -84,79 +82,6 @@ class ReSym(REINFORCE):
         
         # During training, we use num_augment_train     
         n_aug = self.num_augment_train if phase == "train" else self.num_augment
-
-        if phase == "train" and False:
-            # downsample td for curriculum training
-            if self.env.name == "tsp":
-                if self.current_epoch < 100:
-                    num_loc = 100
-                    batch_size = 256
-                else:
-                    num_loc = torch.randint(100, 501, []).item()
-                    batch_size = 1_600_000 // num_loc ** 2
-                n_start = num_loc
-                td = td[:batch_size]
-                td["action_mask"] = td["action_mask"][:, :num_loc]
-                td["locs"] = td["locs"][:, :num_loc, :]
-            elif self.env.name == "cvrp":
-                if self.current_epoch < 100:
-                    num_loc = 100
-                    capacity = 50
-                    batch_size = 128
-                else:
-                    num_loc = torch.randint(100, 501, []).item()
-                    capacity = torch.randint(50, 101, []).item()
-                    batch_size = 1_280_000 // num_loc ** 2
-                n_start = num_loc
-                td = td[:batch_size]
-                td["action_mask"] = td["action_mask"][:, :num_loc+1]
-                td["demand"] = td["demand"][:, :num_loc] * td["capacity"] / capacity
-                td["capacity"].fill_(capacity)
-                td["locs"] = td["locs"][:, :num_loc+1, :]
-                td["visited"] = td["visited"][:, :num_loc+1]
-            elif self.env.name in ["op", "symop"]:
-                if self.current_epoch < 100:
-                    num_loc = 100
-                    batch_size = 256
-                else:
-                    num_loc = torch.randint(100, 501, []).item()
-                    batch_size = 1_600_000 // num_loc ** 2
-                n_start = num_loc + 1 if "sym" in self.env.name else num_loc
-                td = td[:batch_size]
-                td["action_mask"] = td["action_mask"][:, :num_loc+1]
-                td["locs"] = td["locs"][:, :num_loc+1, :]
-                td["prize"] = td["prize"][:, :num_loc+1]
-                td["visited"] = td["visited"][:, :num_loc+1]
-
-                if self.env.name == "op":
-                    td["max_length"] = td["max_length"][:, :num_loc+1]
-                    
-            elif self.env.name in ["pctsp", "spctsp", "sympctsp", "symspctsp"]:
-                if self.current_epoch < 100:
-                    num_loc = 100
-                    penalty_factor = 4
-                    batch_size = 256
-                else:
-                    num_loc = torch.randint(100, 501, []).item()
-                    penalty_factor = torch.randint(4, 10, []).item()
-                    batch_size = 1_600_000 // num_loc ** 2
-                n_start = num_loc + 1 if "sym" in self.env.name else num_loc
-                td = td[:batch_size]
-                td["action_mask"] = td["action_mask"][:, :num_loc+1]
-                td["deterministic_prize"] = td["deterministic_prize"][:, :num_loc] * 500 / num_loc
-                td["expected_prize"] = td["expected_prize"][:, :num_loc] * 500 / num_loc
-                td["locs"] = td["locs"][:, :num_loc+1, :]
-                td["penalty"] = td["penalty"][:, :num_loc+1] * 500 / num_loc * penalty_factor / 9
-                td["cur_total_penalty"] = td["penalty"].sum(-1)
-                td["real_prize"] = td["real_prize"][:, :num_loc+1] * 500 / num_loc
-                td["stochastic_prize"] = td["stochastic_prize"][:, :num_loc] * 500 / num_loc
-                td["visited"] = td["visited"][:, :num_loc+1]
-            if self.env.name == "atsp" and not self.env.generator.tmat_class:
-                dms = td["cost_matrix"] 
-                for i in range(dms.size(-1)):
-                    dms = torch.minimum(dms, dms[..., :, [i]] + dms[..., [i], :])
-                td["cost_matrix"] = dms
-
 
         if n_aug > 1:
             if phase == "train":
@@ -251,11 +176,11 @@ class ReSym(REINFORCE):
         )
 
         if self.mix_loss:
-            loss = mixed_loss(reward, log_likelihood, self.po_alpha, self.elite_k, self.elite_alpha)
+            loss = mixed_loss(reward, log_likelihood, self.po_alpha, self.poppy)
         else:
-            loss_ps = problem_symmetricity_loss(reward, log_likelihood, 1, self.po_alpha, self.elite_k, self.elite_alpha)
-            loss_ss = solution_symmetricity_loss(reward, log_likelihood, -1, self.po_alpha, self.elite_k, self.elite_alpha)
-            loss = (loss_ps + loss_ss) / 2
+            loss_ps = symmetricity_loss(reward, log_likelihood, 1, self.po_alpha, self.poppy)
+            loss_ss = symmetricity_loss(reward, log_likelihood, -1, self.po_alpha, self.poppy)
+            loss = loss_ps + loss_ss
 
         policy_out.update(
             {

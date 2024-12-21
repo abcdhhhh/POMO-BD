@@ -2,57 +2,40 @@ from einops import rearrange
 import torch
 import torch.nn.functional as F
 
-def problem_symmetricity_loss(reward, log_likelihood, dim=1, po_alpha=0., elite_k=1, elite_alpha=0.):
-    """REINFORCE loss for problem symmetricity
-    Baseline is the average reward for all augmented problems
-    Corresponds to `L_ps` in the SymNCO paper
-    """
-    num_augment = reward.shape[dim]
-    if num_augment < 2:
-        return 0
-    if po_alpha != 0:
-        assert dim == 1
-        preference = reward[:, :, None, ...] > reward[:, None, :, ...] 
-        log_prob_pair = log_likelihood[:, :, None, ...] - log_likelihood[:, None, :, ...] 
-        pf_log = torch.log(F.sigmoid(po_alpha * log_prob_pair)) 
-        loss = -(pf_log * preference).mean()
-    else:
-        advantage = reward - reward.mean(dim=dim, keepdim=True)
-        loss = -(advantage * log_likelihood).mean()
-        if elite_alpha != 0:
-            elite_k = min(elite_k, reward.shape[dim])
-            top_reward, top_idx = reward.topk(elite_k, dim=dim)
-            top_loss = -(advantage * log_likelihood).gather(dim, top_idx).mean()
-            loss = elite_alpha * top_loss + (1 - elite_alpha) * loss
-    return loss
 
-
-def solution_symmetricity_loss(reward, log_likelihood, dim=-1, po_alpha=0., elite_k=1, elite_alpha=0.):
+def symmetricity_loss(reward, log_likelihood, dim=1, po_alpha=0., poppy=False):
     """REINFORCE loss for solution symmetricity
-    Baseline is the average reward for all start nodes
-    Corresponds to `L_ss` in the SymNCO paper
+    dim = 1 for all augmented problems
+    dim = -1 for all start nodes
     """
     num_augment = reward.shape[dim]
     if num_augment < 2:
         return 0
     if po_alpha != 0:
-        assert dim == -1
-        preference = reward[..., :, None] > reward[..., None, :] 
-        log_prob_pair = log_likelihood[..., :, None] - log_likelihood[..., None, :] 
+        if dim == 1:
+            preference = reward[:, :, None, ...] > reward[:, None, :, ...] 
+            log_prob_pair = log_likelihood[:, :, None, ...] - log_likelihood[:, None, :, ...] 
+        elif dim == -1:
+            preference = reward[..., :, None] > reward[..., None, :] 
+            log_prob_pair = log_likelihood[..., :, None] - log_likelihood[..., None, :]
+        else:
+            raise NotImplementedError 
+        
         pf_log = torch.log(F.sigmoid(po_alpha * log_prob_pair)) 
         loss = -(pf_log * preference).mean()
     else:
         advantage = reward - reward.mean(dim=dim, keepdim=True)
-        loss = -(advantage * log_likelihood).mean()
-        if elite_alpha != 0:
-            elite_k = min(elite_k, reward.shape[dim])
-            top_reward, top_idx = reward.topk(elite_k, dim=dim)
-            top_loss = -(advantage * log_likelihood).gather(dim, top_idx).mean()
-            loss = elite_alpha * top_loss + (1 - elite_alpha) * loss     
+        if poppy:
+            # Log-likelihood mask. Mask everything but the best rollout per instance
+            best_idx = (-reward).argsort(dim).argsort(dim)
+            mask = best_idx < 1
+        else:
+            mask = torch.ones_like(reward)
+        loss = -(advantage * log_likelihood * mask).mean()    
     return loss
 
 def mixed_loss(reward, log_likelihood, po_alpha=0., elite_k=1, elite_alpha=0.):
-    return problem_symmetricity_loss(reward.flatten(1), log_likelihood.flatten(1), 1, po_alpha, elite_k, elite_alpha)
+    return symmetricity_loss(reward.flatten(1), log_likelihood.flatten(1), 1, po_alpha, elite_k, elite_alpha)
 
 def invariance_loss(proj_embed, num_augment):
     """Loss for invariant representation on projected nodes
