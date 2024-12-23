@@ -19,6 +19,7 @@ class AFTAttention(nn.Module):
         self,
         embed_dim: int,
         bias: bool = False,
+        idt: bool = False,
         device: str = None,
         dtype: torch.dtype = None,
     ):
@@ -27,7 +28,9 @@ class AFTAttention(nn.Module):
         factory_kwargs = {"device": device, "dtype": dtype}
         self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
         self.alpha = nn.Parameter(torch.tensor(1.))
-        # self.beta = nn.Parameter(torch.tensor(0.))
+        self.idt = idt
+        if idt:
+            self.beta = nn.Parameter(torch.tensor(0.))
     
     def forward(self, x: torch.Tensor, dist: torch.Tensor, attn_mask=None):
         """
@@ -39,7 +42,9 @@ class AFTAttention(nn.Module):
         ).unbind(dim=0)
         q = F.sigmoid(q)
         k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
-        w = -self.alpha * math.log2(x.size(-2)) * dist # - self.beta * torch.eye(x.size(-2), device=x.device)
+        w = -self.alpha * math.log2(x.size(-2)) * dist 
+        if self.idt:
+            w = w - self.beta * torch.eye(x.size(-2), device=x.device)
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
                 w.masked_fill_(~attn_mask, float("-inf"))
@@ -58,6 +63,7 @@ class AFTCrossAttention(nn.Module):
         self,
         embed_dim: int,
         bias: bool = False,
+        idt: bool = False,
         device: str = None,
         dtype: torch.dtype = None,
     ):
@@ -67,6 +73,9 @@ class AFTCrossAttention(nn.Module):
         self.Wq = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
         self.Wkv = nn.Linear(embed_dim, 2 * embed_dim, bias=bias, **factory_kwargs)
         self.alpha = nn.Parameter(torch.tensor(1.))
+        self.idt = idt
+        if idt:
+            self.beta = nn.Parameter(torch.tensor(0.))
     
     def forward(self, q_input: torch.Tensor, kv_input: torch.Tensor, dmat: torch.Tensor, cross_attn_mask=None):
         """
@@ -82,6 +91,9 @@ class AFTCrossAttention(nn.Module):
         q = F.sigmoid(q)
         k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
         w = -self.alpha * math.log2(k.size(-2)) * dmat
+        if self.idt:
+            assert q.size(-2) == k.size(-2), "q and k should have same length"
+            w = w - self.beta * torch.eye(k.size(-2), device=q.device)
         if cross_attn_mask is not None:
             if cross_attn_mask.ndim == 2:
                 cross_attn_mask = cross_attn_mask.unsqueeze(1)

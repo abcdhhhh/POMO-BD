@@ -12,7 +12,7 @@ from rl4co.utils.decoding import (
 )
 from rl4co.utils.ops import calculate_entropy
 from rl4co.models.common.constructive.autoregressive.policy import AutoregressivePolicy
-from models.zoo.icam.encoder import AFTEncoder, MatAFTEncoder
+from models.zoo.icam.encoder import AFTEncoder, MatAFTEncoder, HeterAFTEncoder
 from models.zoo.icam.decoder import ICAMDecoder
 from rl4co.utils.pylogger import get_pylogger
 
@@ -106,6 +106,16 @@ class ReSymPolicy(AutoregressivePolicy):
                 normalization=normalization,
                 feedforward_hidden=feedforward_hidden,
                 sdpa_fn=sdpa_fn_encoder,
+            )
+        elif encoder == "haft":
+            encoder = HeterAFTEncoder(
+                embed_dim=embed_dim,
+                init_embedding=init_embedding,
+                env_name=env_name,
+                num_layers=num_encoder_layers,
+                normalization=normalization,
+                feedforward_hidden=feedforward_hidden,
+                net=encoder_network,
             )
         
         if decoder == "cab":

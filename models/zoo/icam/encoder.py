@@ -9,7 +9,7 @@ from torch import Tensor
 from rl4co.envs import RL4COEnvBase
 from rl4co.models.common.constructive import AutoregressiveEncoder
 from rl4co.models.nn.env_embeddings import env_init_embedding
-from .attnnet import AFTNetwork, MatAFTNetwork
+from .attnnet import AFTNetwork, MatAFTNetwork, HeterAFTNetwork
 
 
 class AFTEncoder(AutoregressiveEncoder):
@@ -181,3 +181,37 @@ class MatAFTInitEmbedding(nn.Module):
         col_emb = self.col_init_embed(col_topk)
 
         return row_emb, col_emb, dmat
+    
+class HeterAFTEncoder(AFTEncoder):
+    def __init__(
+        self,
+        embed_dim: int = 128,
+        init_embedding: nn.Module = None,
+        env_name: str = "tsp",
+        num_layers: int = 3,
+        normalization: str = "instance",
+        feedforward_hidden: int = 512,
+        net: nn.Module = None,
+    ):
+        super().__init__()
+
+        if isinstance(env_name, RL4COEnvBase):
+            env_name = env_name.name
+        self.env_name = env_name
+
+        self.init_embedding = (
+            env_init_embedding(self.env_name, {"embed_dim": embed_dim})
+            if init_embedding is None
+            else init_embedding
+        )
+
+        self.net = (
+            HeterAFTNetwork(
+                num_layers = num_layers,
+                embed_dim = embed_dim,
+                normalization = normalization,
+                feedforward_hidden = feedforward_hidden,
+            )
+            if net is None
+            else net
+        )

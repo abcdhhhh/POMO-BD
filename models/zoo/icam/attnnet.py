@@ -1,5 +1,6 @@
 from typing import Callable, Optional
 
+import torch
 import torch.nn as nn
 
 from torch import Tensor
@@ -126,3 +127,81 @@ class MatAFTNetwork(nn.Module):
         for layer in self.layers:
             row_emb, col_emb = layer(row_emb, col_emb, dmat, attn_mask)
         return row_emb, col_emb
+
+
+class HeterAFTLayer(nn.Module):
+    def __init__(
+        self,
+        embed_dim: int,
+        feedforward_hidden: int = 512,
+        normalization: Optional[str] = "batch",
+        bias: bool = False,
+    ):
+        super().__init__()
+        self.all_aft = AFTAttention(embed_dim=embed_dim, bias=bias)
+        self.d2p_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=True)
+        self.p2d_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=True)
+        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization)
+
+
+    def forward(self, x, dist, attn_mask=None):
+
+        # h should be (batch_size, graph_size, input_dim)
+        batch_size, graph_size, input_dim = x.size()
+
+        # Check if graph size is odd number
+        assert (
+            graph_size % 2 == 1
+        ), "Graph size should have odd number of nodes due to pickup-delivery problem  \
+                                     (n/2 pickup, n/2 delivery, 1 depot)"
+        n_pick = (graph_size - 1) // 2
+        # pickup -> its delivery
+        x_p = (
+            x[:, 1:n_pick+1, :]
+        )  # [batch_size * n_pick, embed_dim]
+        x_d = (
+            x[:, n_pick+1:, :]
+        )  # [batch_size * n_pick, embed_dim]
+
+        dist_pd = dist[:, 1:n_pick+1, n_pick+1:]
+        dist_dp = dist[:, n_pick+1:, 1:n_pick+1]
+
+        depot_out = torch.zeros_like(x[:, :1, :])
+        p_out = self.d2p_aft(x_p, x_d, dist_pd)
+        d_out = self.p2d_aft(x_d, x_p, dist_dp)
+        all_out = self.all_aft(x, dist, attn_mask)
+        x_out = x + all_out + torch.cat([depot_out, p_out, d_out], dim=1)
+        x = self.ffn(x_out, x)
+        return x
+
+class HeterAFTNetwork(nn.Module):
+    def __init__(
+        self,
+        num_layers: int,
+        embed_dim: int,
+        normalization: str = "batch",
+        feedforward_hidden: int = 512,
+    ):
+        super().__init__()
+        self.layers = nn.ModuleList(
+            (
+                HeterAFTLayer(
+                    embed_dim=embed_dim,
+                    feedforward_hidden=feedforward_hidden,
+                    normalization=normalization,
+                )
+                for _ in range(num_layers)
+            )
+        )
+
+    def forward(self, x: Tensor, dist: Tensor, attn_mask: Tensor=None) -> Tensor:
+        """Forward pass of the encoder
+
+        Args:
+            x: [batch_size, graph_size, embed_dim] initial embeddings to process
+            dist: [batch_size, graph_size, graph_size]
+            attn_mask: [batch_size, ..., graph_size]
+        """
+        for layer in self.layers:
+            x = layer(x, dist, attn_mask)
+        return x
