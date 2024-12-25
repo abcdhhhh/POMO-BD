@@ -151,7 +151,7 @@ class ICAMDecoder(AttentionModelDecoder):
     def _precompute_cache_matcab(
         self, td, embeddings: torch.Tensor, num_starts: int = 0
     ) -> BiasCache:
-        col_emb, row_emb = embeddings
+        row_emb, col_emb = embeddings
         (
             glimpse_key_fixed,
             glimpse_val_fixed,

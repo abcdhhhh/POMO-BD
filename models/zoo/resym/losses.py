@@ -34,8 +34,8 @@ def symmetricity_loss(reward, log_likelihood, dim=1, po_alpha=0., poppy=False):
         loss = -(advantage * log_likelihood * mask).mean()    
     return loss
 
-def mixed_loss(reward, log_likelihood, po_alpha=0., elite_k=1, elite_alpha=0.):
-    return symmetricity_loss(reward.flatten(1), log_likelihood.flatten(1), 1, po_alpha, elite_k, elite_alpha)
+def mixed_loss(reward, log_likelihood, po_alpha=0., poppy=False):
+    return symmetricity_loss(reward.flatten(1), log_likelihood.flatten(1), 1, po_alpha, poppy)
 
 def invariance_loss(proj_embed, num_augment):
     """Loss for invariant representation on projected nodes
