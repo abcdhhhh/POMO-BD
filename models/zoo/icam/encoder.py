@@ -163,18 +163,21 @@ class MatAFTInitEmbedding(nn.Module):
     def forward(self, td: TensorDict):
         dmat: Tensor = td["cost_matrix"]
 
-        n = dmat.shape[-1]
+        m, n = dmat.shape[-2:]
         if n < self.topk:
             row_topk = torch.cat([
                 torch.sort(dmat, dim=-1)[0],
                 dmat.mean(dim=-1, keepdim=True).expand(*dmat.shape[:-1], self.topk - n),
             ], dim=-1)
-            col_topk = torch.cat([ 
-                torch.sort(dmat.mT, dim=-1)[0],
-                dmat.mT.mean(dim=-1, keepdim=True).expand(*dmat.mT.shape[:-1], self.topk - n),
-            ], dim=-1)
         else:
             row_topk = dmat.topk(k=self.topk, dim=-1, largest=False, sorted=True)[0]
+            
+        if m < self.topk:
+            col_topk = torch.cat([ 
+                torch.sort(dmat.mT, dim=-1)[0],
+                dmat.mT.mean(dim=-1, keepdim=True).expand(*dmat.mT.shape[:-1], self.topk - m),
+            ], dim=-1)
+        else:
             col_topk = dmat.mT.topk(k=self.topk, dim=-1, largest=False, sorted=True)[0]
             
         row_emb = self.row_init_embed(row_topk)
