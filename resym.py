@@ -83,9 +83,9 @@ def run(cfg: DictConfig):
             **model_params_dict,
         )
 
-    if cfg.ckpt_path:
-        ckpt_state_dict = torch.load(cfg.ckpt_path, weights_only=False)['state_dict']
-        model.load_state_dict(ckpt_state_dict, strict=True)
+    # if cfg.ckpt_path:
+    #     ckpt_state_dict = torch.load(cfg.ckpt_path, weights_only=False)['state_dict']
+    #     model.load_state_dict(ckpt_state_dict, strict=True)
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(cfg.save_dir, "checkpoints", cfg.logger.name),
@@ -102,11 +102,11 @@ def run(cfg: DictConfig):
     )
     
     if cfg.mode == "train":
-        trainer.fit(model)
+        trainer.fit(model, ckpt_path=cfg.ckpt_path)
     elif cfg.mode == "val":
-        trainer.validate(model)
+        trainer.validate(model, ckpt_path=cfg.ckpt_path)
     elif cfg.mode == "test":
-        trainer.test(model)
+        trainer.test(model, ckpt_path=cfg.ckpt_path)
 
 if __name__ == "__main__":
     run()
