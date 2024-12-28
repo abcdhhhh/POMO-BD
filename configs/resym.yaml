@@ -1,11 +1,11 @@
 # train/val/test
 mode: train
-env_name: pdp
+env_name: sympdp
 num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: null
+ckpt_path: pretrained/hicam-sympdp100/99.ckpt
 
 env:
   env_name: ${env_name}
@@ -61,9 +61,9 @@ model:
 
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: sampling
+    train_decode_type: multistart_sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: sampling
+    val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
     encoder: haft
@@ -101,7 +101,7 @@ ckpt:
   mode: max
 
 trainer:
-  max_epochs: 100
+  max_epochs: 1000
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
   logger: wandb
