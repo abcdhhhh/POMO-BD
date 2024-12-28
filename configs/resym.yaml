@@ -1,11 +1,11 @@
 # train/val/test
-mode: test
-env_name: symop
+mode: train
+env_name: pdp
 num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/icam-symop100/last.ckpt
+ckpt_path: null
 
 env:
   env_name: ${env_name}
@@ -19,12 +19,12 @@ env:
   # test_file: tsp/tsp${num_loc}_test_seed1234.npz
   # val_file: vrp/vrp${num_loc}_val_seed4321.npz
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
-  val_file: op/op_dist${num_loc}_val_seed4321.npz
-  test_file: op/op_dist${num_loc}_test_seed1234.npz
+  # val_file: op/op_dist${num_loc}_val_seed4321.npz
+  # test_file: op/op_dist${num_loc}_test_seed1234.npz
   # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
   # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
-  # val_file: pdp/pdp${num_loc}_val_seed4321.npz
-  # test_file: pdp/pdp${num_loc}_test_seed1234.npz
+  val_file: pdp/pdp${num_loc}_val_seed4321.npz
+  test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
 logger:
   project: resym
@@ -61,12 +61,12 @@ model:
 
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: multistart_sampling
+    train_decode_type: sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: multistart_greedy
+    val_decode_type: sampling
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
-    encoder: aft
+    encoder: haft
     # choose from 'cab', 'am', 'matnet'
     decoder: cab
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'null', else set 'null'
@@ -104,7 +104,7 @@ trainer:
   max_epochs: 100
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: null
+  logger: wandb
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 
