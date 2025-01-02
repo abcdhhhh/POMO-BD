@@ -32,7 +32,8 @@ class ReSym(REINFORCE):
         feats: list = None,
         num_starts: int = None,
         mix_loss: bool = False,
-        poppy: bool = False,
+        elite_k: int = 1,
+        elite_alpha: bool = 0.,
         po_alpha: float = 0.,
         **kwargs,
     ):
@@ -70,15 +71,43 @@ class ReSym(REINFORCE):
             self.num_augment_train = 0
 
         self.mix_loss = mix_loss
-        self.poppy = poppy
+        self.elite_k = elite_k
+        self.elite_alpha = elite_alpha
         self.po_alpha = po_alpha
     
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
+        if phase == "train" and self.current_epoch >= 100:
+            if self.env.name == "pdp":
+                num_loc = torch.randint(50, 251, []).item() * 2
+            else:
+                num_loc = torch.randint(100, 501, []).item()
+            self.env.generator.num_loc = num_loc
+            batch_size = 128_0000 // num_loc ** 2
+            batch = batch[:batch_size]
+            batch["locs"] = batch["locs"][:, :num_loc, :]
+            if "op" in self.env.name:
+                batch["prize"] = batch["prize"][:, :num_loc]
+            if "pctsp" in self.env.name:
+                batch["penalty"] = batch["penalty"][:, :num_loc] * ((num_loc + 220) / 720)
+                batch["deterministic_prize"] = batch["deterministic_prize"][:, :num_loc]
+                batch["stochastic_prize"] = batch["stochastic_prize"][:, :num_loc]
+                
+            if self.current_epoch >= 200:
+                self.elite_k = 20
+                self.elite_alpha = 0.1
+            else:
+                self.elite_alpha = 0.
+        else:
+            self.env.generator.num_loc = batch["locs"].shape[1]
+
         td = self.env.reset(batch)    
         
         n_start = self.env.get_num_starts(td) if self.num_starts is None else self.num_starts
+
+        if phase == "train":
+            n_start = num_loc + 1
         
         # During training, we use num_augment_train     
         n_aug = self.num_augment_train if phase == "train" else self.num_augment
@@ -176,10 +205,10 @@ class ReSym(REINFORCE):
         )
 
         if self.mix_loss:
-            loss = mixed_loss(reward, log_likelihood, self.po_alpha, self.poppy)
+            loss = mixed_loss(reward, log_likelihood, self.po_alpha, self.elite_k, self.elite_alpha)
         else:
-            loss_ps = symmetricity_loss(reward, log_likelihood, 1, self.po_alpha, self.poppy)
-            loss_ss = symmetricity_loss(reward, log_likelihood, -1, self.po_alpha, self.poppy)
+            loss_ps = symmetricity_loss(reward, log_likelihood, 1, self.po_alpha, self.elite_k, self.elite_alpha)
+            loss_ss = symmetricity_loss(reward, log_likelihood, -1, self.po_alpha, self.elite_k, self.elite_alpha)
             loss = loss_ps + loss_ss
 
         policy_out.update(
