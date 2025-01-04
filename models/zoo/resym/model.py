@@ -90,7 +90,8 @@ class ReSym(REINFORCE):
             if "op" in self.env.name:
                 batch["prize"] = batch["prize"][:, :num_loc]
             if "pctsp" in self.env.name:
-                batch["penalty"] = batch["penalty"][:, :num_loc] * ((num_loc + 220) / 720)
+                max_length = torch.randint(4, 10, []).item()
+                batch["penalty"] = batch["penalty"][:, :num_loc] * (max_length / 9)
                 batch["deterministic_prize"] = batch["deterministic_prize"][:, :num_loc]
                 batch["stochastic_prize"] = batch["stochastic_prize"][:, :num_loc]
                 
