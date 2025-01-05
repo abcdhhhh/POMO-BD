@@ -18,10 +18,11 @@ class AFTLayer(nn.Module):
         embed_dim: int,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
+        idt: bool = False,
         bias: bool = False,
     ):
         super().__init__()  
-        self.aft = AFTAttention(embed_dim=embed_dim, bias=bias)
+        self.aft = AFTAttention(embed_dim=embed_dim, bias=bias, idt=idt)
         self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization)
 
     def forward(self, x, dist, attn_mask=None):
@@ -35,6 +36,7 @@ class AFTNetwork(nn.Module):
         num_layers: int,
         embed_dim: int,
         normalization: str = "batch",
+        idt: bool = False,
         feedforward_hidden: int = 512,
     ):
         super().__init__()
@@ -44,6 +46,7 @@ class AFTNetwork(nn.Module):
                     embed_dim=embed_dim,
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
+                    idt=idt,
                 )
                 for _ in range(num_layers)
             )
@@ -68,11 +71,12 @@ class MatAFTLayer(nn.Module):
         embed_dim: int,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
+        idt: bool = False,
         bias: bool = False,
     ):
         super().__init__()
-        self.row_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias)
-        self.col_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias)
+        self.row_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=idt)
+        self.col_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=idt)
         
         self.F_a = TransformerFFN(embed_dim, feedforward_hidden, normalization)
         self.F_b = TransformerFFN(embed_dim, feedforward_hidden, normalization)
@@ -101,6 +105,7 @@ class MatAFTNetwork(nn.Module):
         num_layers: int,
         embed_dim: int,
         normalization: str = "batch",
+        idt: bool = False,
         feedforward_hidden: int = 512,
     ):
         super().__init__()
@@ -110,6 +115,7 @@ class MatAFTNetwork(nn.Module):
                     embed_dim=embed_dim,
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
+                    idt=idt,
                 )
                 for _ in range(num_layers)
             )
@@ -135,10 +141,11 @@ class HeterAFTLayer(nn.Module):
         embed_dim: int,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
+        idt: bool = False,
         bias: bool = False,
     ):
         super().__init__()
-        self.all_aft = AFTAttention(embed_dim=embed_dim, bias=bias)
+        self.all_aft = AFTAttention(embed_dim=embed_dim, bias=bias, idt=idt)
         self.d2p_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=True)
         self.p2d_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=True)
         self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization)
@@ -180,6 +187,7 @@ class HeterAFTNetwork(nn.Module):
         num_layers: int,
         embed_dim: int,
         normalization: str = "batch",
+        idt: bool = False,
         feedforward_hidden: int = 512,
     ):
         super().__init__()
@@ -189,6 +197,7 @@ class HeterAFTNetwork(nn.Module):
                     embed_dim=embed_dim,
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
+                    idt=idt,
                 )
                 for _ in range(num_layers)
             )

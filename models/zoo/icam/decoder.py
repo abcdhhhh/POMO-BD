@@ -84,7 +84,7 @@ class ICAMDecoder(AttentionModelDecoder):
             pointer=pointer,
             moe_kwargs=moe_kwargs,
         )
-        if "aft" in self.pointer_type:
+        if isinstance(self.pointer_type, str) and "aft" in self.pointer_type:
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
         self.alpha = nn.Parameter(torch.tensor(1.))
         
@@ -133,7 +133,7 @@ class ICAMDecoder(AttentionModelDecoder):
         n = locs.size(-2)
         dist = torch.cdist(locs, locs, p=2)
         bias = self.alpha * math.log2(n) * dist
-        if "aft" in self.pointer_type:
+        if isinstance(self.pointer_type, str) and "aft" in self.pointer_type:
             bias_aft = self.alpha_aft * math.log2(n) * dist
             bias_aft = torch.exp(-bias_aft)
             bias = torch.stack([bias_aft, bias], dim=0)
@@ -220,7 +220,7 @@ class ICAMDecoder(AttentionModelDecoder):
         
         # Compute logits    
         mask = td["action_mask"]
-        if "aft" in self.pointer_type:
+        if isinstance(self.pointer_type, str) and "aft" in self.pointer_type:
             bias_aft = gather_by_index(cached.bias[0], current_node)
             logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias_aft, mask)
             bias = gather_by_index(cached.bias[1], current_node)

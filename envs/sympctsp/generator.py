@@ -14,6 +14,7 @@ log = get_pylogger(__name__)
 from rl4co.envs.routing.pctsp.generator import PCTSPGenerator
 
 MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0, 500: 9.0, 1000: 12.0, 2000: 15.0, 5000: 20.0} # UDC, GLOP
+# MAX_LENGTHS = {20: 2.0, 50: 3.0, 100: 4.0, 200: 4.0, 500: 5.0, 1000: 6.0} # Meta-SAGE
 
 class SymPCTSPGenerator(Generator):
     """Data generator for the Prize-collecting Traveling Salesman Problem (PCTSP).

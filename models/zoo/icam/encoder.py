@@ -33,6 +33,7 @@ class AFTEncoder(AutoregressiveEncoder):
         env_name: str = "tsp",
         num_layers: int = 3,
         normalization: str = "instance",
+        idt: bool = False,
         feedforward_hidden: int = 512,
         net: nn.Module = None,
     ):
@@ -53,6 +54,7 @@ class AFTEncoder(AutoregressiveEncoder):
                 num_layers = num_layers,
                 embed_dim = embed_dim,
                 normalization = normalization,
+                idt=idt,
                 feedforward_hidden = feedforward_hidden,
             )
             if net is None
@@ -92,6 +94,7 @@ class MatAFTEncoder(AutoregressiveEncoder):
         env_name: str = "atsp",
         num_layers: int = 3,
         normalization: str = "instance",
+        idt: bool = False,
         feedforward_hidden: int = 512,
         init_embedding: nn.Module = None,
         init_embedding_kwargs: dict = {},
@@ -117,6 +120,7 @@ class MatAFTEncoder(AutoregressiveEncoder):
                 num_layers = num_layers,
                 embed_dim = embed_dim,
                 normalization = normalization,
+                idt = idt,
                 feedforward_hidden = feedforward_hidden,
             )
             if net is None
@@ -193,6 +197,7 @@ class HeterAFTEncoder(AFTEncoder):
         env_name: str = "tsp",
         num_layers: int = 3,
         normalization: str = "instance",
+        idt: bool = False,
         feedforward_hidden: int = 512,
         net: nn.Module = None,
     ):
@@ -213,6 +218,7 @@ class HeterAFTEncoder(AFTEncoder):
                 num_layers = num_layers,
                 embed_dim = embed_dim,
                 normalization = normalization,
+                idt = idt,
                 feedforward_hidden = feedforward_hidden,
             )
             if net is None

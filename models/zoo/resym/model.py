@@ -107,7 +107,7 @@ class ReSym(REINFORCE):
         
         n_start = self.env.get_num_starts(td) if self.num_starts is None else self.num_starts
 
-        if phase == "train":
+        if phase == "train" and self.current_epoch >= 100:
             n_start = num_loc + 1
         
         # During training, we use num_augment_train     

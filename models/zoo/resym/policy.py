@@ -27,6 +27,7 @@ class ReSymPolicy(AutoregressivePolicy):
         num_heads: int = 8,
         num_encoder_layers: int = 6,
         normalization: str = "instance",
+        idt: bool = False,
         feedforward_hidden: int = 512,
         env_name: Union[str, RL4COEnvBase] = "tsp",
         encoder_network: nn.Module = None,
@@ -58,6 +59,7 @@ class ReSymPolicy(AutoregressivePolicy):
                 env_name=env_name,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
+                idt=idt,
                 feedforward_hidden=feedforward_hidden,
                 net=encoder_network,
             )
@@ -67,6 +69,7 @@ class ReSymPolicy(AutoregressivePolicy):
                 env_name=env_name,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
+                idt=idt,
                 feedforward_hidden=feedforward_hidden,
                 init_embedding=init_embedding,
                 net=encoder_network,
@@ -114,6 +117,7 @@ class ReSymPolicy(AutoregressivePolicy):
                 env_name=env_name,
                 num_layers=num_encoder_layers,
                 normalization=normalization,
+                idt=idt,
                 feedforward_hidden=feedforward_hidden,
                 net=encoder_network,
             )

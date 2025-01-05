@@ -1,11 +1,11 @@
 # train/val/test
-mode: test
-env_name: sympctsp
+mode: train
+env_name: symop
 num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/icam-sympctsp500/399.ckpt
+ckpt_path: null
 
 env:
   env_name: ${env_name}
@@ -19,10 +19,10 @@ env:
   # test_file: tsp/tsp${num_loc}_test_seed1234.npz
   # val_file: vrp/vrp${num_loc}_val_seed4321.npz
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
-  # val_file: op/op_dist${num_loc}_val_seed4321.npz
-  # test_file: op/op_dist${num_loc}_test_seed1234.npz
-  val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
-  test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
+  val_file: op/op_dist${num_loc}_val_seed4321.npz
+  test_file: op/op_dist${num_loc}_test_seed1234.npz
+  # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
+  # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
   # val_file: pdp/pdp${num_loc}_val_seed4321.npz
   # test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
@@ -31,7 +31,7 @@ logger:
   tags: ["${env_name}"]
   group: ${env_name}${num_loc}
   save_dir: ${save_dir}
-  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${env_name}${num_loc}-${model.num_starts}${model.num_augment_train_list}${model.mix_loss}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.val_decode_type}-${model.elite_alpha}-${model.elite_k}
+  name: ${model.policy_kwargs.encoder}${model.policy_kwargs.idt}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${env_name}${num_loc}-${model.num_starts}${model.num_augment_train_list}${model.mix_loss}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.val_decode_type}-${model.elite_alpha}-${model.elite_k}
 
 model:
   batch_size: 128
@@ -51,8 +51,8 @@ model:
   feats: ['locs']
 
   mix_loss: True
-  elite_k: 20
-  elite_alpha: 0.1
+  elite_k: 1
+  elite_alpha: 0.
   po_alpha: 0.0
   
   # set '128' for polynet
@@ -62,16 +62,17 @@ model:
 
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: sampling
+    train_decode_type: multistart_sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
     val_decode_type: multistart_greedy
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
     encoder: aft
+    idt: True
     # choose from 'cab', 'am', 'matnet'
     decoder: cab
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'null', else set 'null'
-    pointer: aft
+    pointer: null
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
     tanh_clipping: 50.
@@ -85,7 +86,7 @@ model:
   lr_scheduler:
     "MultiStepLR"
   lr_scheduler_kwargs:
-    milestones: [200]
+    milestones: []
     gamma: 0.1
   metrics:
     train: ["loss", "reward", "max_reward"]
@@ -102,10 +103,10 @@ ckpt:
   mode: max
 
 trainer:
-  max_epochs: 400
+  max_epochs: 100
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: null
+  logger: wandb
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 
