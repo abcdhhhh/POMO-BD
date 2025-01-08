@@ -78,37 +78,11 @@ class ReSym(REINFORCE):
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
-        if phase == "train" and self.current_epoch >= 100:
-            if self.env.name == "pdp":
-                num_loc = torch.randint(50, 251, []).item() * 2
-            else:
-                num_loc = torch.randint(100, 501, []).item()
-            self.env.generator.num_loc = num_loc
-            batch_size = 128_0000 // num_loc ** 2
-            batch = batch[:batch_size]
-            batch["locs"] = batch["locs"][:, :num_loc, :]
-            if "op" in self.env.name:
-                batch["prize"] = batch["prize"][:, :num_loc]
-            if "pctsp" in self.env.name:
-                max_length = torch.randint(4, 10, []).item()
-                batch["penalty"] = batch["penalty"][:, :num_loc] * (max_length / 9)
-                batch["deterministic_prize"] = batch["deterministic_prize"][:, :num_loc]
-                batch["stochastic_prize"] = batch["stochastic_prize"][:, :num_loc]
-                
-            if self.current_epoch >= 200:
-                self.elite_k = 20
-                self.elite_alpha = 0.1
-            else:
-                self.elite_alpha = 0.
-        else:
-            self.env.generator.num_loc = batch["locs"].shape[1]
 
         td = self.env.reset(batch)    
         
         n_start = self.env.get_num_starts(td) if self.num_starts is None else self.num_starts
 
-        if phase == "train" and self.current_epoch >= 100:
-            n_start = num_loc + 1
         
         # During training, we use num_augment_train     
         n_aug = self.num_augment_train if phase == "train" else self.num_augment

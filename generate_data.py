@@ -123,14 +123,16 @@ def generate_dataset_(
                     np.savez(fname, **dataset)
 
 if __name__ == '__main__':
-    for problem, data_distribution in [("tsp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("pdp", "all"), ("atsp", "all")]:
+    for problem, data_distribution in [("op", "dist")]: # [("tsp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("pdp", "all"), ("atsp", "all")]:
         # set sizes  
         if problem == "tsp":
             sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 2000, 5000]), (16, [10000])]
         elif problem == "vrp":
             sizes = [(10000, [20, 50, 100]), (128, [500]), (100, [1000, 2000, 5000, 7000])]
-        elif problem in ["op", "pctsp"]:
-            sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 5000]), (16, [2000])]
+        elif problem == "op":
+            sizes = [(10000, [20, 50, 100]), (128, [500, 1000])]
+        elif problem == "pctsp":
+            sizes = [(10000, [20, 50, 100]), (128, [500, 1000])]
         elif problem == "pdp":
             sizes = [(10000, [20, 50, 100]), (128, [500])]
         elif problem == "atsp":
@@ -151,9 +153,9 @@ if __name__ == '__main__':
             }
         # set max_lengths
         if problem == "op":
-            kwargs['max_lengths'] = {20: 2.0, 50: 3.0, 100: 4.0, 500: 4.0, 1000: 4.0, 2000: 4.0, 5000: 4.0}
+            kwargs['max_lengths'] = {20: 2.0, 50: 3.0, 100: 4.0, 200: 5.0, 500: 8.0, 1000: 12.0} # ReEvo, BQ
         elif problem == "pctsp":
-            kwargs['max_lengths'] = {20: 2.0, 50: 3.0, 100: 4.0, 500: 9.0, 1000: 12.0, 2000: 15.0, 5000: 20.0} 
+            kwargs['max_lengths'] = {20: 2.0, 50: 3.0, 100: 4.0, 500: 9.0, 1000: 12.0, 2000: 15.0, 5000: 20.0} # GLOP, UDC
 
         for dataset_size, graph_sizes in sizes:
             for name, seed in [("val", 4321), ("test", 1234)]:
