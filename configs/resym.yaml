@@ -1,11 +1,11 @@
 # train/val/test
-mode: test
-env_name: sympctsp
-num_loc: 100
+mode: train
+env_name: tsp
+num_loc: 500
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/icam-sympctsp100/199.ckpt
+ckpt_path: null
 
 env:
   env_name: ${env_name}
@@ -19,14 +19,14 @@ env:
   data_dir: ./data/
   # val_file: ${env_name}/${env_name}${num_loc}_val_seed4321.npz
   # test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
-  # val_file: tsp/tsp${num_loc}_val_seed4321.npz
-  # test_file: tsp/tsp${num_loc}_test_seed1234.npz
+  val_file: tsp/tsp${num_loc}_val_seed4321.npz
+  test_file: tsp/tsp${num_loc}_test_seed1234.npz
   # val_file: vrp/vrp${num_loc}_val_seed4321.npz
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
   # val_file: op/op_dist${num_loc}_val_seed4321.npz
   # test_file: op/op_dist${num_loc}_test_seed1234.npz
-  val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
-  test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
+  # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
+  # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
   # val_file: pdp/pdp${num_loc}_val_seed4321.npz
   # test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
@@ -39,10 +39,10 @@ logger:
 
 model:
   batch_size: 128
-  val_batch_size: 500
+  val_batch_size: 32
   test_batch_size: ${model.val_batch_size}
   train_data_size: 128000
-  val_data_size: 10000
+  val_data_size: 128
   test_data_size: ${model.val_data_size}
 
   # keep batch_size * num_augment_train a constant for fair comparison
@@ -60,13 +60,13 @@ model:
   po_alpha: 0.0
   
   # set '128' for polynet
-  num_starts: 101 # ${num_loc}
+  num_starts: ${num_loc}
   # now only support 'shared'
   baseline: shared
 
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: sampling
+    train_decode_type: multistart_sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
     val_decode_type: multistart_sampling
     test_decode_type: ${model.policy_kwargs.val_decode_type}
@@ -110,7 +110,7 @@ trainer:
   max_epochs: 200
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: null
+  logger: wandb
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 

@@ -38,15 +38,10 @@ def run(cfg: DictConfig):
                 "context_embedding": SymOPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             })  
-        elif cfg.env_name in ["sympctsp", "symspctsp"]:
-            if cfg.env_name == "sympctsp":
-                from envs.sympctsp.env import SymPCTSPEnv
-                del env_params.env_name
-                env = SymPCTSPEnv(**env_params)
-            elif cfg.env_name == "symspctsp":
-                from envs.symspctsp.env import SymSPCTSPEnv
-                del env_params.env_name
-                env = SymSPCTSPEnv(**env_params)
+        elif cfg.env_name == "sympctsp":
+            from envs.sympctsp.env import SymPCTSPEnv
+            del env_params.env_name
+            env = SymPCTSPEnv(**env_params)
             from models.nn.env_embeddings.sympctsp import SymPCTSPContext, SymPCTSPInitEmbedding
             model_params_dict["policy_kwargs"].update({
                 "init_embedding": SymPCTSPInitEmbedding(cfg.embed_dim),
@@ -78,6 +73,16 @@ def run(cfg: DictConfig):
                 "context_embedding": SHPPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             })    
+        elif cfg.env_name in ["stsp"]:
+            from envs.stsp.env import STSPEnv
+            del env_params.env_name
+            env = STSPEnv(**env_params)
+            from models.nn.env_embeddings.stsp import STSPContext, STSPInitEmbedding
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": STSPInitEmbedding(cfg.embed_dim),
+                "context_embedding": STSPContext(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            }) 
         model = ReSym(
             env=env,
             **model_params_dict,
