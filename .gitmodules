@@ -1,7 +1,7 @@
 [submodule "rl4co"]
 	path = rl4co
-	url = https://github.com/ai4co/rl4co
+	url = git@github.com:ai4co/rl4co.git
 
 [submodule "OPLib"]
 	path = OPLib
-	url = https://github.com/bcamath-ds/OPLib
+	url = git@github.com:bcamath-ds/OPLib.git
