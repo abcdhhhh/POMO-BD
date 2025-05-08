@@ -48,6 +48,26 @@ def run(cfg: DictConfig):
                 "context_embedding": SymPCTSPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             }) 
+        elif cfg.env_name == "symcvrp":
+            from envs.symcvrp.env import SymCVRPEnv
+            del env_params.env_name
+            env = SymCVRPEnv(**env_params)
+            from models.nn.env_embeddings.symcvrp import SymVRPContext, SymVRPInitEmbedding
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": SymVRPInitEmbedding(cfg.embed_dim),
+                "context_embedding": SymVRPContext(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            })
+        elif cfg.env_name == "symcvrptw":
+            from envs.symcvrptw.env import SymCVRPTWEnv
+            del env_params.env_name
+            env = SymCVRPTWEnv(**env_params)
+            from models.nn.env_embeddings.symcvrptw import SymVRPTWContext, SymVRPTWInitEmbedding
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": SymVRPTWInitEmbedding(cfg.embed_dim),
+                "context_embedding": SymVRPTWContext(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            })
         elif cfg.env_name == "sympdp":
             from envs.sympdp.env import SymPDPEnv
             del env_params.env_name

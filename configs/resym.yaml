@@ -1,6 +1,6 @@
 # train/val/test
 mode: train
-env_name: symop
+env_name: symcvrptw
 num_loc: 100
 embed_dim: 128
 num_heads: 8
@@ -23,8 +23,8 @@ env:
   # test_file: tsp/tsp${num_loc}_test_seed1234.npz
   # val_file: vrp/vrp${num_loc}_val_seed4321.npz
   # test_file: vrp/vrp${num_loc}_test_seed1234.npz
-  val_file: op/op_dist${num_loc}_val_seed4321.npz
-  test_file: op/op_dist${num_loc}_test_seed1234.npz
+  # val_file: op/op_dist${num_loc}_val_seed4321.npz
+  # test_file: op/op_dist${num_loc}_test_seed1234.npz
   # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
   # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
   # val_file: pdp/pdp${num_loc}_val_seed4321.npz
@@ -108,7 +108,7 @@ ckpt:
   mode: max
 
 trainer:
-  max_epochs: 500
+  max_epochs: 200
   precision: 32-true # set '32-true' if use aft encoder
   # set 'wandb' if use wandb, 'null' otherwise
   logger: wandb

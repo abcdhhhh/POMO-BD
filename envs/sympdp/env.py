@@ -230,6 +230,14 @@ class SymPDPEnv(RL4COEnvBase):
         self.reward_spec = Unbounded(shape=(1,))
         self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)
 
+    def select_start_nodes(self, td, num_starts):
+        num_loc_with_depot = td["locs"].shape[-2]
+        selected = (
+            torch.arange(num_starts, device=td.device).repeat_interleave(td.shape[0])
+            % num_loc_with_depot
+        )
+        return selected
+
     @staticmethod
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         return render(td, actions, ax)

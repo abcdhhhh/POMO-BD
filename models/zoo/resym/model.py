@@ -139,7 +139,6 @@ class ReSym(REINFORCE):
                     )
                     out["actions"] = actions
 
-            # Get augmentation score only during inference
             if n_aug > 1:
                 # If multistart is enabled, we use the best multistart rewards
                 reward_ = max_reward if n_start > 1 else reward
