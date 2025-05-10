@@ -1,6 +1,7 @@
 from typing import Optional
 
 import torch
+from tqdm import tqdm
 
 from tensordict.tensordict import TensorDict
 from torchrl.data import Bounded, Composite, Unbounded
@@ -75,21 +76,37 @@ class SymCVRPTWEnv(SymCVRPEnv):
         """In addition to the constraints considered in the CVRPEnv, the time windows are considered.
         The vehicle can only visit a location if it can reach it in time, i.e. before its time window ends.
         """
-        not_masked = SymCVRPEnv.get_action_mask(td)
-        current_loc = gather_by_index(td["locs"], td["current_node"])
-        dist = get_distance(current_loc[..., None, :], td["locs"])
-        td.update({"current_loc": current_loc, "distances": dist})
+
+        if batch_to_scalar(td["i"]) == 0:
+            return torch.ones_like(td["visited"])
+        
+        # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
+        exceeds_cap = td["demand"] + td["used_capacity"] > td["vehicle_capacity"] + 1e-5
+        
         can_reach_in_time = (
-            td["current_time"] + dist <= td["time_windows"][..., 1]
+            td["current_time"] + td["distances"] <= td["time_windows"][..., 1]
         )  # I only need to start the service before the time window ends, not finish it.
-        return not_masked & can_reach_in_time
+
+        # Nodes that cannot be visited are already visited or too much demand to be served now
+        mask_loc = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
+
+        # Cannot visit the depot if just visited
+        mask_depot = (td["current_node"] == 0)
+        mask = torch.cat((mask_depot, mask_loc), -1) | ~can_reach_in_time
+
+        allow = td["done"].squeeze(-1)
+        mask[allow, :] = 1
+        mask[allow] = mask[allow].scatter(-1, td["first_node"][allow], 0)
+
+        return ~mask
 
     def _step(self, td: TensorDict) -> TensorDict:
         """In addition to the calculations in the CVRPEnv, the current time is
         updated to keep track of which nodes are still reachable in time.
-        The current_node is updeted in the parent class' _step() function.
+        The current_node is updated in the parent class' _step() function.
         """
         batch_size = td["locs"].shape[0]
+
         # update current_time
         distance = gather_by_index(td["distances"], td["action"]).reshape([batch_size, 1])
         duration = gather_by_index(td["durations"], td["action"]).reshape([batch_size, 1])
@@ -99,12 +116,13 @@ class SymCVRPTWEnv(SymCVRPEnv):
         end_times = gather_by_index(td["time_windows"], td["action"])[..., 1].reshape(
             [batch_size, 1]
         )
-
         # current_node is updated to the selected action
         current_node = td["action"][:, None]  # Add dimension for step
         n_loc = td["demand"].size(-1)  # Excludes depot
 
-        first_node = current_node if td["i"].all() == 0 else td["first_node"]
+        current_time =  (
+            torch.max(td["current_time"] + distance, start_times) + duration
+        ) * (current_node != 0).float() * (~td["done"]).float()
 
         # Not selected_demand is demand of first node (by clamp) so incorrect for nodes that visit depot!
         selected_demand = gather_by_index(
@@ -117,16 +135,16 @@ class SymCVRPTWEnv(SymCVRPEnv):
         is_first_route = td["is_first_route"] & (current_node != 0)
         first_capacity = td["first_capacity"] + selected_demand * is_first_route.float()
 
-        current_time = (current_node != 0) * (
-            torch.max(td["current_time"] + distance, start_times) + duration
-        )
-        
+        first_node = current_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
 
-        if td["i"].all() == 0:
+        # update distances
+        current_loc = gather_by_index(td["locs"], current_node)
+        dist = get_distance(current_loc[..., None, :], td["locs"])
+
+        if batch_to_scalar(td["i"]) == 0:
             latest_time = end_times
             penalty_time = end_times
-            current_loc = gather_by_index(td["locs"], current_node)[:, None, :]
-            first_length = (td["locs"] - current_loc).norm(p=2, dim=-1)
+            first_length = dist
         else:
             latest_time = is_first_route.float() * (
                 torch.clamp(td["latest_time"] + distance, start_times, end_times) + duration
@@ -136,17 +154,23 @@ class SymCVRPTWEnv(SymCVRPEnv):
             )
             first_length = td["first_length"]
 
+        first_time = gather_by_index(
+            td["time_windows"], first_node
+        )[..., 0].reshape([batch_size, 1])
+        assert (penalty_time + 1e-5 >= first_time).all(), "Penalty time is smaller than first time window start time"
+
         back_length = gather_by_index(first_length, current_node)[:, None]
 
         # Note: here we do not subtract one as we have to scatter so the first column allows scattering depot
         # Add one dimension since we write a single value
         visited = td["visited"].scatter(-1, current_node, 1)
         # SECTION: get done
-        done = (visited.sum(-1) == visited.size(-1))[..., None] & (used_capacity + first_capacity <= td["vehicle_capacity"] + 1e-5) & (current_time + back_length <= penalty_time)
+        done = (visited.sum(-1) == visited.size(-1))[..., None] & (used_capacity + first_capacity <= td["vehicle_capacity"] + 1e-5) & (current_time + back_length <= penalty_time + 1e-5)
         reward = torch.zeros_like(done)
 
         td.update(
             {
+                "distances": dist,
                 "first_node": first_node,
                 "current_node": current_node,
                 "used_capacity": used_capacity,
@@ -206,6 +230,11 @@ class SymCVRPTWEnv(SymCVRPEnv):
             },
             batch_size=batch_size,
         )
+
+        current_loc = gather_by_index(td_reset["locs"], td_reset["current_node"])
+        dist = get_distance(current_loc[..., None, :], td_reset["locs"])
+        td_reset["distances"] = dist
+
         td_reset.set("action_mask", self.get_action_mask(td_reset))
         return td_reset
 
@@ -216,8 +245,26 @@ class SymCVRPTWEnv(SymCVRPEnv):
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
-        _, graph_size = td["demand"].size()
-        for k, action in enumerate(actions):
+        batch_size, graph_size = td["demand"].size()
+        # distances to depot
+        distances = get_distance(
+            td["locs"][..., 0, :], td["locs"].transpose(0, 1)
+        ).transpose(0, 1)
+        # basic checks on time windows
+        assert torch.all(distances >= 0.0), "Distances must be non-negative."
+        assert torch.all(td["time_windows"] >= 0.0), "Time windows must be non-negative."
+        assert torch.all(
+            td["time_windows"][..., :, 0] + distances + td["durations"]
+            <= td["time_windows"][..., 0, 1][0]  # max_time is the same for all batches
+        ), "vehicle cannot perform service and get back to depot in time."
+        assert torch.all(
+            td["durations"] >= 0.0
+        ), "Service durations must be non-negative."
+        assert torch.all(
+            td["time_windows"][..., 0] < td["time_windows"][..., 1]
+        ), "there are unfeasible time windows"
+
+        for k, action in tqdm(enumerate(actions)):
             n = action.size(0)
             while n > 1 and action[n - 1] == action[0]:
                 n -= 1

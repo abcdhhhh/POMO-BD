@@ -67,9 +67,5 @@ class SymPDPContext(EnvContext):
                     batch_size, -1
                 ),
             ).view(batch_size, *node_dim)
-        try:
-            return self.project_context(context_embedding)
-        except:
-            import pdb; pdb.set_trace()
-
+        return self.project_context(context_embedding)
     

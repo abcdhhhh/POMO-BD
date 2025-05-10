@@ -163,8 +163,6 @@ class SymCVRPEnv(CVRPEnv):
         allow = td["done"].squeeze(-1)
         mask[allow, :] = 1
         mask[allow] = mask[allow].scatter(-1, td["first_node"][allow], 0)
-        # if td["done"].any():
-        #     import pdb; pdb.set_trace()
         
         return ~mask
 

@@ -5,12 +5,14 @@ num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: null
+ckpt_path: outputs/checkpoints/aft-cab-aft-symcvrptw100-101[]-multistart_sampling/last.ckpt
 
 env:
   env_name: ${env_name}
   generator_params:
     num_loc: ${num_loc}
+    # for CVRPTW
+    scale: True
     # for OP
     # max_length: 8
     # for PCTSP
@@ -47,10 +49,10 @@ model:
 
   # keep batch_size * num_augment_train a constant for fair comparison
   num_augment_train_list: []
-  num_augment_list: [8]
+  num_augment_list: []
   # list of 'dihedral8', 'symmetric', 'pdp', 'atsp'
   augment_fn_train_list: []
-  augment_fn_list: ['dihedral8']
+  augment_fn_list: []
   # set ['locs'] for euclidean routing, ['cost_matrix'] for atsp
   feats: ['locs']
 
@@ -71,15 +73,15 @@ model:
     val_decode_type: ${model.policy_kwargs.train_decode_type}
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
-    encoder: am
+    encoder: aft
     idt: False
     # choose from 'cab', 'am', 'matnet'
-    decoder: am
+    decoder: cab
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'null', else set 'null'
-    pointer: null
+    pointer: aft
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
-    tanh_clipping: 10.
+    tanh_clipping: 50.
     num_encoder_layers: 6
     normalization: instance
     use_graph_context: False

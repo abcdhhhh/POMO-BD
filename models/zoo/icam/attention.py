@@ -160,7 +160,7 @@ class AFTPointerAttention(PointerAttention):
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
         wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        glimpse = q * (wkv / wk)
+        glimpse = q * wkv / wk
         return glimpse
 
 class PolyNetAFTAttention(AFTPointerAttention):
