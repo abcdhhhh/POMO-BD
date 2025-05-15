@@ -17,7 +17,7 @@ from rl4co.utils.pylogger import get_pylogger
 from rl4co.envs.common.utils import batch_to_scalar
 from rl4co.envs.routing.cvrptw.env import CVRPTWEnv
 from rl4co.envs.routing.cvrp.generator import CVRPGenerator
-from rl4co.envs.routing.cvrptw.generator import CVRPTWGenerator
+from .generator import SymCVRPTWGenerator
 from rl4co.envs.routing.cvrptw.render import render
 from envs.symcvrp.env import SymCVRPEnv
 
@@ -60,13 +60,13 @@ class SymCVRPTWEnv(SymCVRPEnv):
 
     def __init__(
         self,
-        generator: CVRPTWGenerator = None,
+        generator: SymCVRPTWGenerator = None,
         generator_params: dict = {},
         **kwargs,
     ):
         super().__init__(**kwargs)
         if generator is None:
-            generator = CVRPTWGenerator(**generator_params)
+            generator = SymCVRPTWGenerator(**generator_params)
         self.generator = generator
         self._make_spec(self.generator)
     
@@ -142,7 +142,7 @@ class SymCVRPTWEnv(SymCVRPEnv):
         dist = get_distance(current_loc[..., None, :], td["locs"])
 
         if batch_to_scalar(td["i"]) == 0:
-            latest_time = end_times
+            latest_time = end_times + duration
             penalty_time = end_times
             first_length = dist
         else:
@@ -154,18 +154,14 @@ class SymCVRPTWEnv(SymCVRPEnv):
             )
             first_length = td["first_length"]
 
-        first_time = gather_by_index(
-            td["time_windows"], first_node
-        )[..., 0].reshape([batch_size, 1])
-        assert (penalty_time + 1e-5 >= first_time).all(), "Penalty time is smaller than first time window start time"
-
+        assert (penalty_time >= first_length[..., [0]] - 1e-5).all(), "Penalty time must be greater than first length"
         back_length = gather_by_index(first_length, current_node)[:, None]
 
         # Note: here we do not subtract one as we have to scatter so the first column allows scattering depot
         # Add one dimension since we write a single value
         visited = td["visited"].scatter(-1, current_node, 1)
         # SECTION: get done
-        done = (visited.sum(-1) == visited.size(-1))[..., None] & (used_capacity + first_capacity <= td["vehicle_capacity"] + 1e-5) & (current_time + back_length <= penalty_time + 1e-5)
+        done = (visited.sum(-1) == visited.size(-1))[..., None] & (used_capacity + first_capacity <= td["vehicle_capacity"] + 1e-5) & (current_time + back_length <= torch.maximum(penalty_time, first_length[..., [0]]))
         reward = torch.zeros_like(done)
 
         td.update(
@@ -297,7 +293,7 @@ class SymCVRPTWEnv(SymCVRPEnv):
                     dist = get_distance(last_loc, current_loc)
                     t = max(t + dist, td["time_windows"][k, action[i], 0])
                     assert (
-                        t <= td["time_windows"][k, action[i], 1] + 1e-5
+                        t <= td["time_windows"][k, action[i], 1]
                     ).all(), "Arrived too late at location"
                     duration = td["durations"][k, action[i]]
                     t = t + duration
@@ -313,12 +309,12 @@ class SymCVRPTWEnv(SymCVRPEnv):
                 dist = get_distance(last_loc, current_loc)
                 t = max(t + dist, td["time_windows"][k, action[i], 0])
                 assert (
-                    t <= td["time_windows"][k, action[i], 1] + 1e-5
+                    t <= td["time_windows"][k, action[i], 1]
                 ).all(), "Arrived too late at location in first route"
                 duration = td["durations"][k, action[i]]
                 t = t + duration
 
-    def _make_spec(self, generator: CVRPTWGenerator):
+    def _make_spec(self, generator: SymCVRPTWGenerator):
         if isinstance(generator, CVRPGenerator):
             super()._make_spec(generator)
         else:
@@ -354,71 +350,71 @@ class SymCVRPTWEnv(SymCVRPEnv):
     def render(td: TensorDict, actions: torch.Tensor = None, ax=None):
         render(td, actions, ax)
 
-    @staticmethod
-    def load_data(
-        name: str,
-        solomon=False,
-        path_instances: str = None,
-        type: str = None,
-        compute_edge_weights: bool = False,
-    ):
-        if solomon:
-            assert type in [
-                "instance",
-                "solution",
-            ], "type must be either 'instance' or 'solution'"
-            if type == "instance":
-                instance = load_solomon_instance(
-                    name=name, path=path_instances, edge_weights=compute_edge_weights
-                )
-            elif type == "solution":
-                instance = load_solomon_solution(name=name, path=path_instances)
-            return instance
-        return load_npz_to_tensordict(filename=name)
+    # @staticmethod
+    # def load_data(
+    #     name: str,
+    #     solomon=False,
+    #     path_instances: str = None,
+    #     type: str = None,
+    #     compute_edge_weights: bool = False,
+    # ):
+    #     if solomon:
+    #         assert type in [
+    #             "instance",
+    #             "solution",
+    #         ], "type must be either 'instance' or 'solution'"
+    #         if type == "instance":
+    #             instance = load_solomon_instance(
+    #                 name=name, path=path_instances, edge_weights=compute_edge_weights
+    #             )
+    #         elif type == "solution":
+    #             instance = load_solomon_solution(name=name, path=path_instances)
+    #         return instance
+    #     return load_npz_to_tensordict(filename=name)
 
-    def extract_from_solomon(self, instance: dict, batch_size: int = 1):
-        # extract parameters for the environment from the Solomon instance
-        self.min_demand = instance["demand"][1:].min()
-        self.max_demand = instance["demand"][1:].max()
-        self.vehicle_capacity = instance["capacity"]
-        self.min_loc = instance["node_coord"][1:].min()
-        self.max_loc = instance["node_coord"][1:].max()
-        self.min_time = instance["time_window"][:, 0].min()
-        self.max_time = instance["time_window"][:, 1].max()
-        # assert the time window of the depot starts at 0 and ends at max_time
-        assert self.min_time == 0, "Time window of depot must start at 0."
-        assert (
-            self.max_time == instance["time_window"][0, 1]
-        ), "Depot must have latest end time."
-        # convert to format used in CVRPTWEnv
-        td = TensorDict(
-            {
-                "depot": torch.tensor(
-                    instance["node_coord"][0],
-                    dtype=torch.float32,
-                    device=self.device,
-                ).repeat(batch_size, 1),
-                "locs": torch.tensor(
-                    instance["node_coord"][1:],
-                    dtype=torch.float32,
-                    device=self.device,
-                ).repeat(batch_size, 1, 1),
-                "demand": torch.tensor(
-                    instance["demand"][1:],
-                    dtype=torch.float32,
-                    device=self.device,
-                ).repeat(batch_size, 1),
-                "durations": torch.tensor(
-                    instance["service_time"],
-                    dtype=torch.int64,
-                    device=self.device,
-                ).repeat(batch_size, 1),
-                "time_windows": torch.tensor(
-                    instance["time_window"],
-                    dtype=torch.int64,
-                    device=self.device,
-                ).repeat(batch_size, 1, 1),
-            },
-            batch_size=1,  # we assume batch_size will always be 1 for loaded instances
-        )
-        return self.reset(td, batch_size=batch_size)
+    # def extract_from_solomon(self, instance: dict, batch_size: int = 1):
+    #     # extract parameters for the environment from the Solomon instance
+    #     self.min_demand = instance["demand"][1:].min()
+    #     self.max_demand = instance["demand"][1:].max()
+    #     self.vehicle_capacity = instance["capacity"]
+    #     self.min_loc = instance["node_coord"][1:].min()
+    #     self.max_loc = instance["node_coord"][1:].max()
+    #     self.min_time = instance["time_window"][:, 0].min()
+    #     self.max_time = instance["time_window"][:, 1].max()
+    #     # assert the time window of the depot starts at 0 and ends at max_time
+    #     assert self.min_time == 0, "Time window of depot must start at 0."
+    #     assert (
+    #         self.max_time == instance["time_window"][0, 1]
+    #     ), "Depot must have latest end time."
+    #     # convert to format used in CVRPTWEnv
+    #     td = TensorDict(
+    #         {
+    #             "depot": torch.tensor(
+    #                 instance["node_coord"][0],
+    #                 dtype=torch.float32,
+    #                 device=self.device,
+    #             ).repeat(batch_size, 1),
+    #             "locs": torch.tensor(
+    #                 instance["node_coord"][1:],
+    #                 dtype=torch.float32,
+    #                 device=self.device,
+    #             ).repeat(batch_size, 1, 1),
+    #             "demand": torch.tensor(
+    #                 instance["demand"][1:],
+    #                 dtype=torch.float32,
+    #                 device=self.device,
+    #             ).repeat(batch_size, 1),
+    #             "durations": torch.tensor(
+    #                 instance["service_time"],
+    #                 dtype=torch.int64,
+    #                 device=self.device,
+    #             ).repeat(batch_size, 1),
+    #             "time_windows": torch.tensor(
+    #                 instance["time_window"],
+    #                 dtype=torch.int64,
+    #                 device=self.device,
+    #             ).repeat(batch_size, 1, 1),
+    #         },
+    #         batch_size=1,  # we assume batch_size will always be 1 for loaded instances
+    #     )
+    #     return self.reset(td, batch_size=batch_size)

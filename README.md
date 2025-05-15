@@ -1,3 +1,5 @@
+Please remove `load_data` from CVRPTWEnv in `rl4co/rl4co/envs/routing/cvrptw/env.py`.
+
 # Generate Data
 
 ```bash

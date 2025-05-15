@@ -54,7 +54,7 @@ class AFTAttention(nn.Module):
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
         wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        out = q * (wkv / wk)
+        out = q * wkv / wk
         
         return out
     
@@ -105,7 +105,7 @@ class AFTCrossAttention(nn.Module):
         wkv = torch.bmm(w, k*v)
         wk = torch.bmm(w, k)
         wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        out = q * (wkv / wk)
+        out = q * wkv / wk
         
         return out
 
@@ -167,7 +167,7 @@ class PolyNetAFTAttention(AFTPointerAttention):
     def __init__(
         self, k: int, embed_dim: int, poly_layer_dim: int, **kwargs
     ):
-        super(PolyNetAFTAttention, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
         self.k = k
         self.binary_vector_dim = math.ceil(math.log2(k))
@@ -217,3 +217,51 @@ class PolyNetAFTAttention(AFTPointerAttention):
         if self.check_nan:
             assert not torch.isnan(logits).any(), "Logits contain NaNs"
         return logits
+    
+class ReLDPointerAttention(PointerAttention):
+    """
+    follow ReLD (http://arxiv.org/abs/2503.00753)
+    adding idt and ffn
+    """
+    def __init__(
+        self,
+        embed_dim: int,
+        num_heads: int,
+        **kwargs,
+    ):
+        # embed_dim, num_heads is not needed
+        super().__init__(embed_dim=embed_dim, num_heads=num_heads, **kwargs)
+        self.ffn = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim * 4),
+            nn.ReLU(),
+            nn.Linear(embed_dim * 4, embed_dim)
+        )
+
+    def forward(self, query, key, value, logit_key, attn_mask=None):
+        """Compute attention logits given query, key, value, logit key and attention mask.
+
+        Args:
+            query: query tensor of shape [B, ..., L, E]
+            key: key tensor of shape [B, ..., S, E]
+            value: value tensor of shape [B, ..., S, E]
+            logit_key: logit key tensor of shape [B, ..., S, E]
+            attn_mask: attention mask tensor of shape [B, ..., S]. Note that `True` means that the value _should_ take part in attention
+                as described in the [PyTorch Documentation](https://pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html)
+        """
+        # Compute inner multi-head attention with no projections.
+        heads = self._inner_mha(query, key, value, attn_mask)
+        glimpse = heads + query
+        # glimpse = self._project_out(heads, attn_mask)
+        glimpse = self.ffn(glimpse) + glimpse
+
+        # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
+        # bmm is slightly faster than einsum and matmul
+        logits = (torch.bmm(glimpse, logit_key.squeeze(-2).transpose(-2, -1))).squeeze(
+            -2
+        ) / math.sqrt(glimpse.size(-1))
+
+        if self.check_nan:
+            assert not torch.isnan(logits).any(), "Logits contain NaNs"
+
+        return logits
+

@@ -19,7 +19,20 @@ def run(cfg: DictConfig):
 
     env_params = cfg.env
     if cfg.env_name in ENV_REGISTRY:
-        env = get_env(**env_params) 
+        if cfg.env_name == "cvrptw":
+            from envs.symcvrptw.generator import SymCVRPTWGenerator
+            generator = SymCVRPTWGenerator(**env_params.generator_params)
+            env = get_env(generator=generator, **env_params)
+        elif cfg.env_name == "op":
+            from envs.symop.generator import SymOPGenerator
+            generator = SymOPGenerator(**env_params.generator_params)
+            env = get_env(generator=generator, **env_params)
+        elif cfg.env_name == "pctsp":
+            from envs.sympctsp.generator import SymPCTSPGenerator
+            generator = SymPCTSPGenerator(**env_params.generator_params)
+            env = get_env(generator=generator, **env_params)
+        else:
+            env = get_env(**env_params) 
         model = ReSym(
             env=env,
             **cfg.model,

@@ -55,6 +55,12 @@ def generate_dataset_(
 
     if problem == "all":
         problems = distributions_per_problem
+    elif problem == "vrptw":
+        problems = {
+            problem: [None]
+            if data_distribution == "all"
+            else [data_distribution]
+        }
     else:
         problems = {
             problem: distributions_per_problem[problem]
@@ -112,9 +118,14 @@ def generate_dataset_(
                 np.random.seed(seed)
 
                 # Automatically generate dataset
-                dataset = generate_env_data(
-                    problem, dataset_size, graph_size, distribution, **kwargs
-                )
+                if problem == "vrptw":
+                    dataset = generate_vrptw_data(
+                        dataset_size, graph_size, capacities=kwargs.get("capacities"), max_time=3.0
+                    )
+                else:
+                    dataset = generate_env_data(
+                        problem, dataset_size, graph_size, distribution, **kwargs
+                    )
 
                 # A function can return None in case of an error or a skip
                 if dataset is not None:
@@ -122,8 +133,98 @@ def generate_dataset_(
                     log.info("Saving {} dataset to {}".format(problem, fname))
                     np.savez(fname, **dataset)
 
+def generate_vrptw_data(dataset_size, vrp_size, capacities=None, max_time=3.0):
+    # From Kool et al. 2019, Hottung et al. 2022, Kim et al. 2023
+    CAPACITIES = {
+        10: 20.0,
+        15: 25.0,
+        20: 30.0,
+        30: 33.0,
+        40: 37.0,
+        50: 40.0,
+        60: 43.0,
+        75: 45.0,
+        100: 50.0,
+        125: 55.0,
+        150: 60.0,
+        200: 70.0,
+        500: 100.0,
+        1000: 150.0,
+    }
+
+    # If capacities are provided, replace keys in CAPACITIES with provided values if they exist
+    if capacities is not None:
+        for k, v in capacities.items():
+            if k in CAPACITIES:
+                print(f"Replacing capacity for {k} with {v}")
+                CAPACITIES[k] = v
+
+    depot = np.random.uniform(size=(dataset_size, 2)).astype(
+        np.float32
+    )  # Depot location
+    locs = np.random.uniform(size=(dataset_size, vrp_size, 2)).astype(
+        np.float32
+    )  # Node locations
+
+    demand = np.random.randint(1, 10, size=(dataset_size, vrp_size)).astype(
+        np.float32
+    )  # Demand, uniform integer 1 ... 9
+    
+    capacity = np.full(dataset_size, CAPACITIES[vrp_size]).astype(np.float32)
+
+
+    durations = np.full(shape=(dataset_size, vrp_size + 1), fill_value=0.2).astype(np.float32)
+    durations[:, 0] = 0.0  # Depot duration is 0
+
+    # 1. get distances from depot to locs
+    dist = np.linalg.norm(
+        depot[:, np.newaxis, :] - locs[:, :, :], axis=-1)
+    dist = np.concatenate((np.zeros((dataset_size, 1)), dist), axis=1)
+
+    #  2. define upper bound for time windows to make sure the vehicle can get back to the depot in time
+    upper_bound = max_time - dist - durations
+
+    # 3. time centers
+    time_centers = np.random.uniform(
+        size=(dataset_size, vrp_size + 1)
+    ) * (upper_bound - dist) + dist
+
+    # 4. time windows
+    time_half_width = np.random.uniform(
+        size=(dataset_size, vrp_size + 1)
+    ) * (max_time / 3 - durations / 2) + durations / 2
+
+    # 5. set min and max times
+    min_times = np.clip(time_centers - time_half_width, dist, upper_bound)
+    max_times = np.clip(time_centers + time_half_width, dist, upper_bound)
+
+    # 6. reset times for depot
+    min_times[..., :, 0] = 0.0
+    max_times[..., :, 0] = max_time + 1e-5
+
+    # 8. stack to tensor time_windows
+    time_windows = np.stack((min_times, max_times), axis=-1).astype(np.float32)
+
+    assert np.all(
+        min_times < max_times
+    ), "Please make sure the relation between max_loc and max_time allows for feasible solutions."
+
+
+    # Reset duration at depot to 0
+    durations[:, 0] = 0.0
+
+    return {
+        "depot": depot,
+        "locs": locs,
+        "demand": demand,
+        "capacity": capacity,
+        "durations": durations,
+        "time_windows": time_windows,
+    }  # Capacity, same for whole dataset
+
+
 if __name__ == '__main__':
-    for problem, data_distribution in [("op", "dist")]: # [("tsp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("pdp", "all"), ("atsp", "all")]:
+    for problem, data_distribution in [("vrptw", "all")]: # [("tsp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("pdp", "all"), ("atsp", "all")]:
         # set sizes  
         if problem == "tsp":
             sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 2000, 5000]), (16, [10000])]
@@ -137,6 +238,8 @@ if __name__ == '__main__':
             sizes = [(10000, [20, 50, 100]), (128, [500])]
         elif problem == "atsp":
             sizes = [(10000, [20, 50, 100]), (128, [500]), (16, [1000])]
+        elif problem == "vrptw":
+            sizes = [(10000, [20, 50, 100])]
 
         kwargs = {}
         # set capacities

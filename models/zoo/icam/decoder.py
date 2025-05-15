@@ -68,6 +68,16 @@ class ICAMDecoder(AttentionModelDecoder):
                 mask_inner=mask_inner,
                 check_nan=check_nan,
             )
+        elif pointer == "reld":
+            from .attention import ReLDPointerAttention
+            pointer = ReLDPointerAttention(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                mask_inner=mask_inner,
+                out_bias=out_bias_pointer_attn,
+                check_nan=check_nan,
+            )
+        
 
         super().__init__(
             embed_dim=embed_dim,
