@@ -141,6 +141,17 @@ class ReSymPolicy(AutoregressivePolicy):
             )
         elif decoder == "am":
             from rl4co.models.zoo.am.decoder import AttentionModelDecoder
+            if pointer == "poly":
+                from rl4co.models.nn.attention import PolyNetAttention
+                pointer = PolyNetAttention(
+                    k=128,
+                    embed_dim=embed_dim,
+                    poly_layer_dim=embed_dim*2,
+                    num_heads=num_heads,
+                    mask_inner=mask_inner,
+                    out_bias=out_bias_pointer_attn,
+                    check_nan=check_nan,
+                )
             decoder = AttentionModelDecoder(
                 embed_dim=embed_dim,
                 num_heads=num_heads,

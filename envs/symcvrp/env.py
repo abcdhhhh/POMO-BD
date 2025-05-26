@@ -148,7 +148,7 @@ class SymCVRPEnv(CVRPEnv):
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
         if batch_to_scalar(td["i"]) == 0:
-            return torch.ones_like(td["visited"])
+            return torch.ones_like(td["visited"], dtype=torch.bool)
         
         # For demand steps_dim is inserted by indexing with id, for used_capacity insert node dim for broadcasting
         exceeds_cap = td["demand"] + td["used_capacity"] > td["vehicle_capacity"] + 1e-5

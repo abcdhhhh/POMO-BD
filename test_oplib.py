@@ -80,8 +80,8 @@ model_nd = ReSym(env=sym_env, policy_kwargs={
         "dynamic_embedding": StaticEmbedding(),
 })
 
-path_d = "./pretrained/icam-pomo-op100/199.ckpt"
-path_free = "./pretrained/icam-op100/199.ckpt"
+path_d = "./pretrained/icam-forced-op100/199.ckpt"
+path_free = "./pretrained/icam-free-op100/199.ckpt"
 path_nd = "./pretrained/icam-symop100/199.ckpt"
 model_d.load_state_dict(torch.load(path_d, weights_only=False)['state_dict'])
 model_free.load_state_dict(torch.load(path_free, weights_only=False)['state_dict'])
