@@ -8,6 +8,8 @@ python generate_data.py
 
 # Run
 
+modify `configs/resym.yaml`, and then run
+
 ```bash
 python resym.py
 ```
