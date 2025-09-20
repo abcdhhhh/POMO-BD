@@ -23,3 +23,8 @@ modify `configs/resym.yaml`, and then run
 python resym.py
 ```
 
+# View
+
+```bash
+tensorboard --logdir outputs --port 6006
+```

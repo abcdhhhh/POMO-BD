@@ -224,7 +224,7 @@ def generate_vrptw_data(dataset_size, vrp_size, capacities=None, max_time=3.0):
 
 
 if __name__ == '__main__':
-    for problem, data_distribution in [("vrptw", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all")]: # ("tsp", "all"), ("pdp", "all"), ("atsp", "all")]:
+    for problem, data_distribution in [("vrptw", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("tsp", "all"), ("pdp", "all")]: #, ("atsp", "all")]:
         # set sizes  
         if problem == "tsp":
             sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 2000, 5000]), (16, [10000])]

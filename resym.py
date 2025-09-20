@@ -4,7 +4,7 @@ from omegaconf import OmegaConf, DictConfig
 
 import torch
 import lightning as L
-from lightning.pytorch.loggers import WandbLogger
+from lightning.pytorch.loggers import WandbLogger, TensorBoardLogger
 from lightning.pytorch.callbacks import ModelCheckpoint
 
 from rl4co.utils.trainer import RL4COTrainer
@@ -133,7 +133,9 @@ def run(cfg: DictConfig):
     trainer_params_dict = OmegaConf.to_container(cfg.trainer, resolve=True)
     if trainer_params_dict['logger'] == 'wandb':
         trainer_params_dict['logger'] = WandbLogger(**cfg.logger)
-    
+    elif trainer_params_dict['logger'] == 'tensorboard':
+        trainer_params_dict['logger'] = TensorBoardLogger(**cfg.logger)
+
     trainer = RL4COTrainer(
         **trainer_params_dict,
         callbacks=[checkpoint_callback],

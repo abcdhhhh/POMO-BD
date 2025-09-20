@@ -1,11 +1,11 @@
 # train/val/test
-mode: test
+mode: train
 env_name: cvrp
-num_loc: 500
+num_loc: 50
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/pomo-free-cvrp500/599_-38.4275_-37.8804.ckpt
+ckpt_path: null
 
 env:
   env_name: ${env_name}
@@ -32,19 +32,12 @@ env:
   # val_file: pdp/pdp${num_loc}_val_seed4321.npz
   # test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
-logger:
-  project: resym
-  tags: ["${env_name}"]
-  group: ${env_name}${num_loc}
-  save_dir: ${save_dir}
-  name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${env_name}${num_loc}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}
-
 model:
-  batch_size: 128
-  val_batch_size: 32
+  batch_size: 64
+  val_batch_size: 500
   test_batch_size: ${model.val_batch_size}
   train_data_size: 128000
-  val_data_size: 128
+  val_data_size: 10000
   test_data_size: ${model.val_data_size}
 
   # keep batch_size * num_augment_train a constant for fair comparison
@@ -62,13 +55,13 @@ model:
   po_alpha: 0.0
   
   # set '128' for polynet
-  num_starts: 501 # ${num_loc}
+  num_starts: ${num_loc}
   # now only support 'shared'
   baseline: shared
 
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
-    train_decode_type: sampling
+    train_decode_type: multistart_sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
     val_decode_type: ${model.policy_kwargs.train_decode_type}
     test_decode_type: ${model.policy_kwargs.val_decode_type}
@@ -76,13 +69,15 @@ model:
     encoder: am
     # for aft encoder
     idt: False
-    # choose from 'cab', 'am', 'matnet'
-    decoder: am
+    # for scam decoder
+    top_k: ${num_loc}
+    # choose from 'cab', 'am', 'matnet', 'scam'
+    decoder: scam
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'reld', 'null', else set 'null'
     pointer: null
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
-    tanh_clipping: 50.
+    tanh_clipping: 10.
     num_encoder_layers: 6
     normalization: instance
     use_graph_context: False
@@ -101,6 +96,14 @@ model:
     test: ${model.metrics.val}
     log_on_step: True
 
+logger:
+  # project: scam
+  # tags: ["${env_name}"]
+  # group: ${env_name}${num_loc}
+  save_dir: ${save_dir}
+  name: ${model.policy_kwargs.decoder}-${env_name}${num_loc}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.top_k}
+
+
 ckpt:
   monitor: val/max_reward
   filename: "{epoch:02d}_{val/reward:.4f}_{val/max_reward:.4f}"
@@ -115,7 +118,7 @@ trainer:
   precision: 32-true # set '32-true' if use aft encoder
   accumulate_grad_batches: 1
   # set 'wandb' if use wandb, 'null' otherwise
-  logger: null
+  logger: tensorboard
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 
