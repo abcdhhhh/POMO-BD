@@ -35,13 +35,19 @@ class ICAMDecoder(AttentionModelDecoder):
         out_bias_pointer_attn: bool = False,
         linear_bias: bool = False,
         use_graph_context: bool = True,
+        context_k: int = 0,
+        logit_bias: bool = True,
         check_nan: bool = True,
         sdpa_fn: callable = None,
         pointer: Union[nn.Module, str] = None,
         moe_kwargs: dict = None,
     ):
         self.encoder_type = encoder_type
-        self.pointer_type = pointer
+
+        self.is_aft = isinstance(pointer, str) and "aft" in pointer
+        self.context_k = context_k
+        self.logit_bias = logit_bias
+        
         if pointer == "aft":
             from .attention import AFTPointerAttention
             pointer = AFTPointerAttention(
@@ -94,10 +100,13 @@ class ICAMDecoder(AttentionModelDecoder):
             pointer=pointer,
             moe_kwargs=moe_kwargs,
         )
-        if isinstance(self.pointer_type, str) and "aft" in self.pointer_type:
+
+        if self.is_aft:
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
         self.alpha = nn.Parameter(torch.tensor(1.))
-        
+
+        if self.context_k:
+            self.W_top = nn.Linear(context_k * embed_dim, embed_dim, bias=False)
 
     def pre_decoder_hook(
         self, td, env, embeddings, num_starts: int = 0
@@ -142,8 +151,8 @@ class ICAMDecoder(AttentionModelDecoder):
             locs = locs[:, 0]
         n = locs.size(-2)
         dist = torch.cdist(locs, locs, p=2)
-        bias = self.alpha * math.log2(n) * dist
-        if isinstance(self.pointer_type, str) and "aft" in self.pointer_type:
+        bias = dist
+        if self.is_aft:
             bias_aft = self.alpha_aft * math.log2(n) * dist
             bias_aft = torch.exp(-bias_aft)
             bias = torch.stack([bias_aft, bias], dim=0)
@@ -180,8 +189,8 @@ class ICAMDecoder(AttentionModelDecoder):
             assert (dmat == dmat[:, [0]]).all()
             dmat = dmat[:, 0]
         n = dmat.size(-1)
-        bias = self.alpha * math.log2(n) * dmat
-        if "aft" in self.pointer_type:
+        bias = dmat
+        if self.is_aft:
             bias_aft = self.alpha_aft * math.log2(n) * dmat
             bias_aft = torch.exp(-bias_aft)
             bias = torch.stack([bias_aft, bias], dim=0)
@@ -227,21 +236,40 @@ class ICAMDecoder(AttentionModelDecoder):
         current_node = td["current_node"]
         if (num_starts > 1 and current_node.ndim == 3) or (num_starts == 1 and current_node.ndim == 2):
             current_node = current_node.squeeze(-1)
-        
-        # Compute logits    
-        mask = td["action_mask"]
-        if isinstance(self.pointer_type, str) and "aft" in self.pointer_type:
+
+        if self.is_aft:
             bias_aft = gather_by_index(cached.bias[0], current_node)
-            logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias_aft, mask)
             bias = gather_by_index(cached.bias[1], current_node)
         else:
-            logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
             bias = gather_by_index(cached.bias, current_node)
+              
+        mask = td["action_mask"]
+        if self.context_k:
+            n_unvisited = mask.sum(-1, keepdim=True)
+            top_k_mask = (torch.arange(self.context_k, device=mask.device).unsqueeze(0) < n_unvisited).flatten(1)
+            
+            masked_bias = bias.masked_fill(~mask, float('inf'))
+            top_k_bias, top_k_indices = masked_bias.topk(self.context_k, dim=-1, largest=False)
+            top_k_indices = top_k_indices.flatten(1)
 
-        if any(name in self.env_name for name in ["sym", "tsp", "shpp"]) and td["i"][(0,) * td["i"].dim()].item() < 1:
+            # top_k embeddings
+            top_k_embeddings = gather_by_index(cached.node_embeddings, top_k_indices).masked_fill(~top_k_mask.unsqueeze(-1), 0.0)
+            top_k_embeddings = rearrange(top_k_embeddings, "b (s k) e -> b s (k e)", s=num_starts, k=self.context_k)
+
+            # top_k_embeddings = torch.cat([top_k_embeddings, (-top_k_bias).exp()], dim=-1)  # append bias
+
+            glimpse_q = glimpse_q + self.W_top(top_k_embeddings)
+
+        # Compute logits
+        if self.is_aft:
+            logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, bias_aft, mask)
+        else:
+            logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
+
+        if not self.logit_bias or (any(name in self.env_name for name in ["sym", "tsp", "shpp"]) and td["i"][(0,) * td["i"].dim()].item() < 1):
             pass # not connected
         else:
-            logits = logits - bias
+            logits = logits - self.alpha * math.log2(bias.shape[-1]) * bias
         
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here

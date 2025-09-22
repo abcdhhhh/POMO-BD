@@ -7,6 +7,13 @@ conda create -n rl4co python=3.12
 conda activate rl4co
 cd rl4co
 pip install -e .
+pip install wandb tensorboard
+```
+
+if cuda version is 11, then reinstall pytorch by
+
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cu118 --force-reinstall
 ```
 
 # Generate Data
@@ -26,5 +33,5 @@ python resym.py
 # View
 
 ```bash
-tensorboard --logdir outputs --port 6006
+tensorboard --logdir outputs/tsp100 --port 6006
 ```
