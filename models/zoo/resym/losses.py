@@ -21,7 +21,7 @@ def symmetricity_loss(reward, log_likelihood, dim=1, po_alpha=0., elite_k=1, eli
         else:
             raise NotImplementedError 
         
-        pf_log = torch.log(F.sigmoid(po_alpha * log_prob_pair)) 
+        pf_log = torch.log(F.sigmoid(po_alpha * log_prob_pair)) if po_alpha > 0 else -po_alpha * log_prob_pair
         loss = -(pf_log * preference).mean()
     else:
         advantage = reward - reward.mean(dim=dim, keepdim=True)

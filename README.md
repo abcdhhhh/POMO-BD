@@ -33,5 +33,5 @@ python resym.py
 # View
 
 ```bash
-tensorboard --logdir outputs/tsp100 --port 6006
+tensorboard --logdir outputs/cvrp50 --port 6006
 ```

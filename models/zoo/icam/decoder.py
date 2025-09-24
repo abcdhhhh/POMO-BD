@@ -151,7 +151,7 @@ class ICAMDecoder(AttentionModelDecoder):
             locs = locs[:, 0]
         n = locs.size(-2)
         dist = torch.cdist(locs, locs, p=2)
-        bias = dist
+        bias = -dist
         if self.is_aft:
             bias_aft = self.alpha_aft * math.log2(n) * dist
             bias_aft = torch.exp(-bias_aft)
@@ -189,7 +189,7 @@ class ICAMDecoder(AttentionModelDecoder):
             assert (dmat == dmat[:, [0]]).all()
             dmat = dmat[:, 0]
         n = dmat.size(-1)
-        bias = dmat
+        bias = -dmat
         if self.is_aft:
             bias_aft = self.alpha_aft * math.log2(n) * dmat
             bias_aft = torch.exp(-bias_aft)
@@ -248,8 +248,8 @@ class ICAMDecoder(AttentionModelDecoder):
             n_unvisited = mask.sum(-1, keepdim=True)
             top_k_mask = (torch.arange(self.context_k, device=mask.device).unsqueeze(0) < n_unvisited).flatten(1)
             
-            masked_bias = bias.masked_fill(~mask, float('inf'))
-            top_k_bias, top_k_indices = masked_bias.topk(self.context_k, dim=-1, largest=False)
+            masked_bias = bias.masked_fill(~mask, float('-inf'))
+            top_k_bias, top_k_indices = masked_bias.topk(self.context_k, dim=-1)
             top_k_indices = top_k_indices.flatten(1)
 
             # top_k embeddings
@@ -269,7 +269,7 @@ class ICAMDecoder(AttentionModelDecoder):
         if not self.logit_bias or (any(name in self.env_name for name in ["sym", "tsp", "shpp"]) and td["i"][(0,) * td["i"].dim()].item() < 1):
             pass # not connected
         else:
-            logits = logits - self.alpha * math.log2(bias.shape[-1]) * bias
+            logits = logits + self.alpha * math.log2(bias.shape[-1]) * bias
         
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here
