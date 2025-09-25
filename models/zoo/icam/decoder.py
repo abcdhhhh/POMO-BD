@@ -150,7 +150,17 @@ class ICAMDecoder(AttentionModelDecoder):
             assert (locs == locs[:, [0]]).all()
             locs = locs[:, 0]
         n = locs.size(-2)
-        dist = torch.cdist(locs, locs, p=2)
+
+        if self.env_name == "kp":
+            w = locs[:, :, 0]
+            v = locs[:, :, 1]
+            w = w[:, :, None] + w[:, None, :] + 1e-10
+            v = v[:, :, None] + v[:, None, :] 
+            dist_original = v / w
+            dist = 1 - dist_original / (dist_original.max(dim=-1, keepdim=True)[0] + 1e-10)
+        else:
+            dist = torch.cdist(locs, locs, p=2)
+
         bias = -dist
         if self.is_aft:
             bias_aft = self.alpha_aft * math.log2(n) * dist

@@ -1,6 +1,6 @@
 # train/val/test
 mode: train
-env_name: tsp
+env_name: kp
 num_loc: 100
 embed_dim: 128
 num_heads: 8

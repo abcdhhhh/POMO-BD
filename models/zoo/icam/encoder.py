@@ -79,7 +79,15 @@ class AFTEncoder(AutoregressiveEncoder):
         init_h = self.init_embedding(td)
 
         locs = td["locs"]
-        dist = torch.cdist(locs, locs, p=2)
+        if self.env_name == "kp":
+            w = locs[:, :, 0]
+            v = locs[:, :, 1]
+            w = w[:, :, None] + w[:, None, :] + 1e-10
+            v = v[:, :, None] + v[:, None, :] 
+            dist_original = v / w
+            dist = 1 - dist_original / (dist_original.max(dim=-1, keepdim=True)[0] + 1e-10)
+        else:
+            dist = torch.cdist(locs, locs, p=2)
 
         # Process embedding
         h = self.net(init_h, dist, attn_mask)

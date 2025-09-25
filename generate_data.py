@@ -55,7 +55,7 @@ def generate_dataset_(
 
     if problem == "all":
         problems = distributions_per_problem
-    elif problem == "vrptw":
+    elif problem in ["vrptw", "kp"]:
         problems = {
             problem: [None]
             if data_distribution == "all"
@@ -122,6 +122,10 @@ def generate_dataset_(
                     dataset = generate_vrptw_data(
                         dataset_size, graph_size, capacities=kwargs.get("capacities"), max_time=3.0
                     )
+                elif problem == "kp":
+                    dataset = generate_kp_data(
+                        dataset_size, graph_size, capacities=kwargs.get("capacities")
+                    )
                 else:
                     dataset = generate_env_data(
                         problem, dataset_size, graph_size, distribution, **kwargs
@@ -132,6 +136,25 @@ def generate_dataset_(
                     # Save to disk as dict
                     log.info("Saving {} dataset to {}".format(problem, fname))
                     np.savez(fname, **dataset)
+
+def generate_kp_data(dataset_size, kp_size, capacities=None):
+    CAPACITIES = {
+        50: 12.5,
+        100: 25.0,
+        200: 25.0,
+    }
+
+    # If capacities are provided, replace keys in CAPACITIES with provided values if they exist
+    if capacities is not None:
+        for k, v in capacities.items():
+            if k in CAPACITIES:
+                print(f"Replacing capacity for {k} with {v}")
+                CAPACITIES[k] = v
+
+    return {
+        "locs": np.random.uniform(size=(dataset_size, kp_size, 2)).astype(np.float32),
+        "capacity": np.full(dataset_size, CAPACITIES[kp_size]).astype(np.float32),
+    }
 
 def generate_vrptw_data(dataset_size, vrp_size, capacities=None, max_time=3.0):
     # From Kool et al. 2019, Hottung et al. 2022, Kim et al. 2023
@@ -224,7 +247,7 @@ def generate_vrptw_data(dataset_size, vrp_size, capacities=None, max_time=3.0):
 
 
 if __name__ == '__main__':
-    for problem, data_distribution in [("vrptw", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("tsp", "all"), ("pdp", "all")]: #, ("atsp", "all")]:
+    for problem, data_distribution in [("vrptw", "all"), ("kp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("tsp", "all"), ("pdp", "all")]: #, ("atsp", "all")]:
         # set sizes  
         if problem == "tsp":
             sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 2000, 5000]), (16, [10000])]
@@ -240,6 +263,8 @@ if __name__ == '__main__':
             sizes = [(10000, [20, 50, 100]), (128, [500]), (16, [1000])]
         elif problem == "vrptw":
             sizes = [(10000, [20, 50, 100])]
+        elif problem == "kp":
+            sizes = [(10000, [50, 100, 200])]
 
         kwargs = {}
         # set capacities

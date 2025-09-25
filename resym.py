@@ -41,7 +41,17 @@ def run(cfg: DictConfig):
         from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
         model_params_dict = OmegaConf.to_container(cfg.model, resolve=True)
 
-        if cfg.env_name == "symop":
+        if cfg.env_name == "kp":
+            from envs.kp.env import KPEnv
+            del env_params.env_name
+            env = KPEnv(**env_params)
+            from models.nn.env_embeddings.kp import KPContext, KPInitEmbedding
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": KPInitEmbedding(cfg.embed_dim),
+                "context_embedding": KPContext(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            })
+        elif cfg.env_name == "symop":
             from envs.symop.env import SymOPEnv
             del env_params.env_name
             env = SymOPEnv(**env_params)
@@ -106,7 +116,7 @@ def run(cfg: DictConfig):
                 "context_embedding": SHPPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             })    
-        elif cfg.env_name in ["stsp"]:
+        elif cfg.env_name == "stsp":
             from envs.stsp.env import STSPEnv
             del env_params.env_name
             env = STSPEnv(**env_params)
