@@ -103,7 +103,8 @@ class ICAMDecoder(AttentionModelDecoder):
 
         if self.is_aft:
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
-        self.alpha = nn.Parameter(torch.tensor(1.))
+        if logit_bias:
+            self.alpha = nn.Parameter(torch.tensor(1.))
 
         if self.context_k:
             self.W_top = nn.Linear(context_k * embed_dim, embed_dim, bias=False)

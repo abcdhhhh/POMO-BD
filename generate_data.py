@@ -250,9 +250,9 @@ if __name__ == '__main__':
     for problem, data_distribution in [("vrptw", "all"), ("kp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("tsp", "all"), ("pdp", "all")]: #, ("atsp", "all")]:
         # set sizes  
         if problem == "tsp":
-            sizes = [(10000, [20, 50, 100]), (128, [500, 1000, 2000, 5000]), (16, [10000])]
+            sizes = [(10000, [20, 50, 100]), (128, [200, 500, 1000, 2000, 5000]), (16, [10000])]
         elif problem == "vrp":
-            sizes = [(10000, [20, 50, 100]), (128, [500]), (100, [1000, 2000, 5000, 7000])]
+            sizes = [(10000, [20, 50, 100]), (128, [200, 500]), (100, [1000])]
         elif problem == "op":
             sizes = [(10000, [20, 50, 100]), (128, [500, 1000])]
         elif problem == "pctsp":
@@ -267,18 +267,6 @@ if __name__ == '__main__':
             sizes = [(10000, [50, 100, 200])]
 
         kwargs = {}
-        # set capacities
-        if problem == "vrp":
-            kwargs['capacities'] = {
-                20: 30.0,
-                50: 40.0,
-                100: 50.0,
-                500: 100.0,
-                1000: 200.0,
-                2000: 300.0,
-                5000: 300.0,
-                7000: 300.0,
-            }
         # set max_lengths
         if problem == "op":
             kwargs['max_lengths'] = {20: 2.0, 50: 3.0, 100: 4.0, 200: 5.0, 500: 8.0, 1000: 12.0} # ReEvo, BQ
