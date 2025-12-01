@@ -1,11 +1,11 @@
 # train/val/test
-mode: train
+mode: test
 env_name: cvrp
-num_loc: 100
+num_loc: 50
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: null
+ckpt_path: outputs/checkpoints/cvrp50/aft-cab-reld-50[]-multistart_sampling-0-True-0.05/last.ckpt
 
 env:
   env_name: ${env_name}
@@ -66,16 +66,16 @@ model:
     val_decode_type: multistart_greedy # ${model.policy_kwargs.train_decode_type}
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
-    encoder: am
+    encoder: aft
     # for aft encoder
     idt: False
     # for cab decoder
     context_k: 0
     logit_bias: True
     # choose from 'cab', 'am', 'matnet', 'scam'
-    decoder: scam
+    decoder: cab
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'reld', 'null', else set 'null'
-    pointer: null
+    pointer: reld
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
     tanh_clipping: 50.
@@ -102,7 +102,7 @@ logger:
   # tags: ["${env_name}"]
   # group: ${env_name}${num_loc}
   save_dir: ${save_dir}
-  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.context_k}-${model.policy_kwargs.logit_bias}-${model.po_alpha}
+  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.context_k}-${model.policy_kwargs.logit_bias}-${model.po_alpha}-wd
 
 
 ckpt:
@@ -119,7 +119,7 @@ trainer:
   precision: 32-true # set '32-true' if use aft encoder
   accumulate_grad_batches: 1
   # set 'wandb' if use wandb, 'tensorboard' if use tensorboard, 'null' otherwise
-  logger: tensorboard
+  logger: null
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 
