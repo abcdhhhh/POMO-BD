@@ -7,13 +7,13 @@ conda create -n rl4co python=3.12
 conda activate rl4co
 cd rl4co
 pip install -e .
-pip install wandb tensorboard
+pip install tensorboard tsplib95 vrplib
 ```
 
 if cuda version is 11, then reinstall pytorch by
 
 ```bash
-pip install torch --index-url https://download.pytorch.org/whl/cu118 --force-reinstall
+pip install torch -i https://download.pytorch.org/whl/cu118 --force-reinstall
 ```
 
 # Generate Data

@@ -1,11 +1,11 @@
 # train/val/test
 mode: test
-env_name: cvrp
-num_loc: 50
+env_name: tsp
+num_loc: 20
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: outputs/checkpoints/cvrp50/aft-cab-reld-50[]-multistart_sampling-0-True-0.05/last.ckpt
+ckpt_path: outputs/checkpoints/tsp50/am-scam-None-50[]-multistart_sampling-1-False-0.05-v1/last.ckpt
 
 env:
   env_name: ${env_name}
@@ -19,10 +19,10 @@ env:
   data_dir: ./data/
   # val_file: ${env_name}/${env_name}${num_loc}_val_seed4321.npz
   # test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
-  # val_file: tsp/tsp${num_loc}_val_seed4321.npz
-  # test_file: tsp/tsp${num_loc}_test_seed1234.npz
-  val_file: vrp/vrp${num_loc}_val_seed4321.npz
-  test_file: vrp/vrp${num_loc}_test_seed1234.npz
+  val_file: tsp/tsp${num_loc}_val_seed4321.npz
+  test_file: tsp/tsp${num_loc}_test_seed1234.npz
+  # val_file: vrp/vrp${num_loc}_val_seed4321.npz
+  # test_file: vrp/vrp${num_loc}_test_seed1234.npz
   # val_file: vrptw/vrptw${num_loc}_val_seed4321.npz
   # test_file: vrptw/vrptw${num_loc}_test_seed1234.npz
   # val_file: op/op_dist${num_loc}_val_seed4321.npz
@@ -42,10 +42,10 @@ model:
 
   # keep batch_size * num_augment_train a constant for fair comparison
   num_augment_train_list: []
-  # num_augment_list: [8]
+  num_augment_list: []
   # choose from 'dihedral8', 'symmetric', 'pdp', 'atsp'
   augment_fn_train_list: []
-  # augment_fn_list: ['dihedral8']
+  augment_fn_list: []
   # set ['locs'] for euclidean routing, ['cost_matrix'] for atsp
   feats: ['locs']
 
@@ -66,16 +66,16 @@ model:
     val_decode_type: multistart_greedy # ${model.policy_kwargs.train_decode_type}
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
-    encoder: aft
+    encoder: am
     # for aft encoder
     idt: False
     # for cab decoder
-    context_k: 0
-    logit_bias: True
+    context_k: 1
+    logit_bias: False
     # choose from 'cab', 'am', 'matnet', 'scam'
-    decoder: cab
+    decoder: scam
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'reld', 'null', else set 'null'
-    pointer: reld
+    pointer: null
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
     tanh_clipping: 50.
@@ -102,7 +102,7 @@ logger:
   # tags: ["${env_name}"]
   # group: ${env_name}${num_loc}
   save_dir: ${save_dir}
-  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.context_k}-${model.policy_kwargs.logit_bias}-${model.po_alpha}-wd
+  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.context_k}-${model.policy_kwargs.logit_bias}-${model.po_alpha}-v1
 
 
 ckpt:

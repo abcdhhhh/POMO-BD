@@ -36,7 +36,7 @@ class SCAMDecoder(AttentionModelDecoder):
         linear_bias: bool = False,
         use_graph_context: bool = True,
         top_k: int = 30,
-        logit_bias: bool = True,
+        logit_bias: bool = False,
         check_nan: bool = True,
         sdpa_fn: callable = None,
         pointer: nn.Module = None,
@@ -63,6 +63,7 @@ class SCAMDecoder(AttentionModelDecoder):
         self.top_k = top_k
         if top_k:
             self.top_emb = nn.Parameter(torch.randn(top_k, embed_dim))
+            self.W = nn.Linear(embed_dim, embed_dim, bias=False)
         self.logit_bias = logit_bias
         if logit_bias:
             self.alpha = nn.Parameter(torch.tensor(1.))
@@ -92,7 +93,8 @@ class SCAMDecoder(AttentionModelDecoder):
             num_starts: Number of starts for the multi-start decoding
         """
         if self.top_k:
-            embeddings = torch.cat([embeddings, self.top_emb.unsqueeze(0).expand(embeddings.size(0), -1, -1)], dim=1)
+            top_emb = self.W(embeddings.mean(1, keepdim=True)) + self.top_emb
+            embeddings = torch.cat([embeddings, top_emb], dim=1)
 
         # The projection of the node embeddings for the attention is calculated once up front
         (
@@ -140,7 +142,8 @@ class SCAMDecoder(AttentionModelDecoder):
     ) -> BiasCache:
         row_emb, col_emb = embeddings
         if self.top_k:
-            col_emb = torch.cat([col_emb, self.top_emb.unsqueeze(0).expand(col_emb.size(0), -1, -1)], dim=1)
+            top_emb = self.W(col_emb.mean(1, keepdim=True)) + self.top_emb
+            col_emb = torch.cat([col_emb, top_emb], dim=1)
         (
             glimpse_key_fixed,
             glimpse_val_fixed,

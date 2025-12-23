@@ -5,3 +5,7 @@
 [submodule "OPLib"]
 	path = OPLib
 	url = git@github.com:bcamath-ds/OPLib.git
+
+[submodule "TSPLib"]
+	path = TSPLIB
+	url = git@github.com:shredderzwj/TSPLib.git

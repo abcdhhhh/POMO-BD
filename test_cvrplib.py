@@ -12,6 +12,43 @@ from tqdm import tqdm
 
 torch.manual_seed(1234)
 
+def get_reward_unnormalized(td_original, actions):
+    from rl4co.utils.ops import gather_by_index
+    locs = td_original['locs']
+    ordered_locs = gather_by_index(locs, actions).float()
+    ordered_locs_next = torch.roll(ordered_locs, -1, dims=-2)
+    d = (ordered_locs - ordered_locs_next).norm(dim=-1, p=2)
+    # if locs dtype is int, the round, else don't round
+    if locs.dtype in [torch.int8, torch.int16, torch.int32, torch.int64]:
+        d = d.round()
+    return -d.sum(dim=-1).round().int().item()
+
+# Utils function: we will normalize the coordinates of the VRP instances
+def normalize_coord(coord:torch.Tensor) -> torch.Tensor:
+    x, y = coord[:, 0], coord[:, 1]
+    x_min, x_max = x.min(), x.max()
+    y_min, y_max = y.min(), y.max()
+    scaler = max(x_max-x_min, y_max-y_min)
+    x_scaled = (x - x_min) / scaler
+    y_scaled = (y - y_min) / scaler
+    coord_scaled = torch.stack([x_scaled, y_scaled], dim=1)
+    return coord_scaled
+
+def vrplib_to_td(problem, normalize=True):
+    coords = torch.tensor(problem['node_coord'])
+    coords_norm = normalize_coord(coords) if normalize else coords
+    demand = torch.tensor(problem['demand'][1:]).float()
+    capacity = problem['capacity']
+    n = coords.shape[0]
+    td = TensorDict({
+        'depot': coords_norm[0,:],
+        'locs': coords_norm[1:,:],
+        'demand': demand / capacity, # normalized demand
+        'capacity': capacity, # original capacity, not needed for inference
+    })
+    td = td[None] # add batch dimension, in this case just 1
+    return td
+
 # problem_names = vrplib.list_names(low=50, high=250, vrp_type='cvrp') 
 
 # instances = [] 
@@ -29,7 +66,7 @@ torch.manual_seed(1234)
     # elif 'M' in name and 'CMT' not in name:
     #     instances.append(name)
 
-instances = [x[:-4] for x in os.listdir('./vrplib/') if x.endswith('.vrp')]
+instances = sorted([x[:-4] for x in os.listdir('./vrplib/') if x.endswith('.vrp')])
 
 # Modify the path you want to save 
 # Note: we don't have to create this folder in advance
@@ -39,32 +76,6 @@ path_to_save = './vrplib/'
 # for instance in tqdm(instances):
 #     vrplib.download_instance(instance, path_to_save)
 #     vrplib.download_solution(instance, path_to_save)
-
-# Utils function: we will normalize the coordinates of the VRP instances
-def normalize_coord(coord:torch.Tensor) -> torch.Tensor:
-    x, y = coord[:, 0], coord[:, 1]
-    x_min, x_max = x.min(), x.max()
-    y_min, y_max = y.min(), y.max()
-    scaler = max(x_max-x_min, y_max-y_min)
-    x_scaled = (x - x_min) / scaler
-    y_scaled = (y - y_min) / scaler
-    coord_scaled = torch.stack([x_scaled, y_scaled], dim=1)
-    return coord_scaled
-
-def vrplib_to_td(problem, normalize=True):
-    coords = torch.tensor(problem['node_coord']).float()
-    coords_norm = normalize_coord(coords) if normalize else coords
-    demand = torch.tensor(problem['demand'][1:]).float()
-    capacity = problem['capacity']
-    n = coords.shape[0]
-    td = TensorDict({
-        'depot': coords_norm[0,:],
-        'locs': coords_norm[1:,:],
-        'demand': demand / capacity, # normalized demand
-        'capacity': capacity, # original capacity, not needed for inference
-    })
-    td = td[None] # add batch dimension, in this case just 1
-    return td
 
 for instance in instances:
     # Inference
@@ -81,7 +92,7 @@ for instance in instances:
     env = CVRPEnv(generator_params={"num_loc": num_loc - 1, "capacity": capacity})
     sym_env = SymCVRPEnv(generator_params={"num_loc": num_loc - 1, "capacity": capacity})
 
-    device = "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     # td_d = env.reset(td=td.clone()).to(device)
     # td_free = env.reset(td=td.clone()).to(device)
     # td_nd = sym_env.reset(td=td.clone()).to(device)
@@ -183,7 +194,7 @@ for instance in instances:
     model_scam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "scam", "pointer": None, "context_k": 1, "tanh_clipping": 50.0, })
     
     path_am = "outputs/checkpoints/cvrp100/am-am-None-100[]-multistart_sampling-0-False-0.05/last.ckpt"
-    path_scam = "outputs/checkpoints/cvrp100/am-scam-None-100[]-multistart_sampling-1-False-0.05/last.ckpt"
+    path_scam = "outputs/checkpoints/cvrp100/am-scam-None-100[]-multistart_sampling-1-False-0.05-v1/last.ckpt"
     model_am.load_state_dict(torch.load(path_am, weights_only=False)['state_dict'])
     model_scam.load_state_dict(torch.load(path_scam, weights_only=False)['state_dict'])
 
@@ -200,8 +211,8 @@ for instance in instances:
     actions = out_am['actions']
     max_reward, max_idxs = reward.max(dim=-1)
     action = actions[max_idxs][None, :]
-    unnormalized_td = env.reset(td_orginal.clone())
-    cost_am = -env.get_reward(unnormalized_td, action).int().item()
+    unnormalized_td = env.reset(td_orginal.clone()).to(device)
+    cost_am = -get_reward_unnormalized(unnormalized_td, action)
 
     policy_scam = model_scam.policy.to(device)
     out_scam = policy_scam.forward(
@@ -216,7 +227,7 @@ for instance in instances:
     actions = out_scam['actions']
     max_reward, max_idxs = reward.max(dim=-1)
     action = actions[max_idxs][None, :]
-    unnormalized_td = env.reset(td_orginal.clone())
-    cost_scam = -env.get_reward(unnormalized_td, action).int().item()
+    unnormalized_td = env.reset(td_orginal.clone()).to(device)
+    cost_scam = -get_reward_unnormalized(unnormalized_td, action)
 
     print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_scam:},{(cost_scam - optimal_cost) / optimal_cost * 100:.2f}%,')

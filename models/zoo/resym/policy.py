@@ -29,7 +29,7 @@ class ReSymPolicy(AutoregressivePolicy):
         normalization: str = "instance",
         idt: bool = False,
         context_k: int = 0,
-        logit_bias: bool = True,
+        logit_bias: bool = False,
         feedforward_hidden: int = 512,
         env_name: Union[str, RL4COEnvBase] = "tsp",
         encoder_network: nn.Module = None,
@@ -204,6 +204,25 @@ class ReSymPolicy(AutoregressivePolicy):
                 use_graph_context=use_graph_context,
                 top_k=context_k,
                 logit_bias=logit_bias,
+                check_nan=check_nan,
+                sdpa_fn=sdpa_fn_decoder,
+                pointer=pointer,
+                moe_kwargs=moe_kwargs["decoder"],
+            )
+        elif decoder == "vam":
+            assert not isinstance(encoder, str) or "aft" not in encoder, "VAM decoder cannot be used with AFT encoder"
+            from models.zoo.vam.decoder import VAMDecoder
+            decoder = VAMDecoder(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                env_name=env_name,
+                encoder_type=encoder_type,
+                context_embedding=context_embedding,
+                dynamic_embedding=dynamic_embedding,
+                mask_inner=mask_inner,
+                out_bias_pointer_attn=out_bias_pointer_attn,
+                linear_bias=linear_bias_decoder,
+                use_graph_context=use_graph_context,
                 check_nan=check_nan,
                 sdpa_fn=sdpa_fn_decoder,
                 pointer=pointer,
