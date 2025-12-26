@@ -35,6 +35,7 @@ class VAMDecoder(AttentionModelDecoder):
         out_bias_pointer_attn: bool = False,
         linear_bias: bool = False,
         use_graph_context: bool = True,
+        logit_bias: bool = False,
         check_nan: bool = True,
         sdpa_fn: callable = None,
         pointer: nn.Module = None,
@@ -57,8 +58,11 @@ class VAMDecoder(AttentionModelDecoder):
             pointer=pointer,
             moe_kwargs=moe_kwargs,
         )
-        
-        self.W = nn.Linear(embed_dim, embed_dim)
+        self.logit_bias = logit_bias
+        if logit_bias:
+            self.W = nn.Linear(embed_dim, embed_dim)
+        else:
+            self.b = nn.Parameter(torch.randn(embed_dim))
         
 
     def pre_decoder_hook(
@@ -84,7 +88,10 @@ class VAMDecoder(AttentionModelDecoder):
             embeddings: Precomputed embeddings for the nodes
             num_starts: Number of starts for the multi-start decoding
         """
-        top_emb = self.W(embeddings.mean(1, keepdim=True))
+        if self.logit_bias:
+            top_emb = self.W(embeddings.mean(1, keepdim=True))
+        else:
+            top_emb = self.b.expand_as(embeddings[:, :1, :])
         embeddings = torch.cat([embeddings, top_emb], dim=1)
 
         # The projection of the node embeddings for the attention is calculated once up front
@@ -132,7 +139,10 @@ class VAMDecoder(AttentionModelDecoder):
         self, td, embeddings: torch.Tensor, num_starts: int = 0
     ) -> BiasCache:
         row_emb, col_emb = embeddings
-        top_emb = self.W(col_emb.mean(1, keepdim=True))
+        if self.logit_bias:
+            top_emb = self.W(col_emb.mean(1, keepdim=True))
+        else:
+            top_emb = self.b.expand_as(col_emb[:, :1, :])
         col_emb = torch.cat([col_emb, top_emb], dim=1)
         (
             glimpse_key_fixed,

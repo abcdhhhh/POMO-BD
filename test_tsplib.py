@@ -51,7 +51,7 @@ def get_reward_unnormalized(td, actions):
     ordered_locs_next = torch.roll(ordered_locs, -1, dims=-2)
     d = (ordered_locs - ordered_locs_next).norm(dim=-1, p=2)
     # if locs dtype is int, the round, else don't round
-    if isinstance(locs, torch.LongTensor):
+    if locs.dtype in [torch.int8, torch.int16, torch.int32, torch.int64]:
         d = d.round()
     return -d.sum(dim=-1).round().int().item()
 
@@ -160,22 +160,27 @@ for problem in problems:
     
     td_am = env.reset(td=td.clone()).to(device)
     td_scam = env.reset(td=td.clone()).to(device)
+    td_vam = env.reset(td=td.clone()).to(device)
 
-    # augment = CompositeAugmentation(
-    #     num_augment_list=[8],
-    #     augment_fn_list=['dihedral8'],
-    # )
+    augment = CompositeAugmentation(
+        num_augment_list=[8],
+        augment_fn_list=['dihedral8'],
+    )
 
-    # td_am = augment(td_am)
-    # td_scam = augment(td_scam)
+    td_am = augment(td_am)
+    td_scam = augment(td_scam)
+    td_vam = augment(td_vam)
 
     model_am = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "am", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, })
     model_scam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "scam", "pointer": None, "context_k": 1, "tanh_clipping": 50.0, })
+    model_vam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, "logit_bias": True, })
     
-    path_am = "outputs/checkpoints/tsp50/am-am-None-50[]-multistart_sampling-0-False-0.05/last.ckpt"
-    path_scam = "outputs/checkpoints/tsp50/am-scam-None-50[]-multistart_sampling-1-False-0.05-v1/last.ckpt"
+    path_am = "outputs/checkpoints/tsp100/am-am-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
+    path_scam = "outputs/checkpoints/tsp100/am-scam-None-100[]-multistart_sampling-1-False-0.0-v1/last.ckpt"
+    path_vam = "outputs/checkpoints/tsp100/am-vam-None-100[]-multistart_sampling-0-True-0.0-v1/last.ckpt"
     model_am.load_state_dict(torch.load(path_am, weights_only=False)['state_dict'])
     model_scam.load_state_dict(torch.load(path_scam, weights_only=False)['state_dict'])
+    model_vam.load_state_dict(torch.load(path_vam, weights_only=False)['state_dict'])
 
     policy_am = model_am.policy.to(device)
     out_am = policy_am.forward(
@@ -209,7 +214,23 @@ for problem in problems:
     unnormalized_td = env.reset(td_orginal.clone()).to(device)
     cost_scam = -get_reward_unnormalized(unnormalized_td, action)
 
+    policy_vam = model_vam.policy.to(device)
+    out_vam = policy_vam.forward(
+        td_vam.clone(),
+        env,
+        phase="test",
+        decode_type="multistart_greedy",
+        num_starts=num_loc,
+        multistart=True,
+    )
+    reward = out_vam['reward']
+    actions = out_vam['actions']
+    max_reward, max_idxs = reward.max(dim=-1)
+    action = actions[max_idxs][None, :]
+    unnormalized_td = env.reset(td_orginal.clone()).to(device)
+    cost_vam = -get_reward_unnormalized(unnormalized_td, action)
+
     if optimal_cost is None:
-        print(f'{instance},N/A,{cost_am:},N/A%,{cost_scam:},N/A%,')
+        print(f'{instance},N/A,{cost_am:},N/A%,{cost_scam:},N/A%,{cost_vam:},N/A%,')
     else:
-        print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_scam:},{(cost_scam - optimal_cost) / optimal_cost * 100:.2f}%,')
+        print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_scam:},{(cost_scam - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam:},{(cost_vam - optimal_cost) / optimal_cost * 100:.2f}%,')

@@ -1,11 +1,11 @@
 # train/val/test
 mode: test
 env_name: tsp
-num_loc: 20
+num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: outputs/checkpoints/tsp50/am-scam-None-50[]-multistart_sampling-1-False-0.05-v1/last.ckpt
+ckpt_path: outputs/checkpoints/tsp100/am-vam-None-100[]-multistart_sampling-0-True-0.0-v1/last.ckpt
 
 env:
   env_name: ${env_name}
@@ -52,7 +52,7 @@ model:
   mix_loss: True
   elite_k: 1
   elite_alpha: 0.
-  po_alpha: 0.05
+  po_alpha: 0.
   
   # set '128' for polynet
   num_starts: ${num_loc}
@@ -70,10 +70,10 @@ model:
     # for aft encoder
     idt: False
     # for cab decoder
-    context_k: 1
-    logit_bias: False
+    context_k: 0
+    logit_bias: True
     # choose from 'cab', 'am', 'matnet', 'scam'
-    decoder: scam
+    decoder: vam
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'reld', 'null', else set 'null'
     pointer: null
     embed_dim: ${embed_dim}

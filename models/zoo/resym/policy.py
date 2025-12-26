@@ -223,6 +223,7 @@ class ReSymPolicy(AutoregressivePolicy):
                 out_bias_pointer_attn=out_bias_pointer_attn,
                 linear_bias=linear_bias_decoder,
                 use_graph_context=use_graph_context,
+                logit_bias=logit_bias,
                 check_nan=check_nan,
                 sdpa_fn=sdpa_fn_decoder,
                 pointer=pointer,
