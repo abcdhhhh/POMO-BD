@@ -1,11 +1,11 @@
 # train/val/test
 mode: test
 env_name: tsp
-num_loc: 100
+num_loc: 500
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: outputs/checkpoints/tsp100/am-vam-None-100[]-multistart_sampling-0-True-0.0-v1/last.ckpt
+ckpt_path: null
 
 env:
   env_name: ${env_name}
@@ -66,23 +66,26 @@ model:
     val_decode_type: multistart_greedy # ${model.policy_kwargs.train_decode_type}
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
-    encoder: am
+    encoder: aft
     # for aft encoder
     idt: False
     # for cab decoder
     context_k: 0
     logit_bias: True
-    # choose from 'cab', 'am', 'matnet', 'scam'
-    decoder: vam
+    # choose from 'cab', 'am', 'matnet', 'scam', 'vam'
+    decoder: cab
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'reld', 'null', else set 'null'
-    pointer: null
+    pointer: aft
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
     tanh_clipping: 50.
     num_encoder_layers: 6
     normalization: instance
+    # if encoder is 'aft', 'mataft', 'haft', then choose from 'relu', 'swiglu', else 'relu'
+    activation: relu
     use_graph_context: False
   
+  optimizer: AdamW
   optimizer_kwargs:
     lr: 3e-4
     weight_decay: 1e-6
@@ -102,7 +105,7 @@ logger:
   # tags: ["${env_name}"]
   # group: ${env_name}${num_loc}
   save_dir: ${save_dir}
-  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.context_k}-${model.policy_kwargs.logit_bias}-${model.po_alpha}-v1
+  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.context_k}-${model.policy_kwargs.logit_bias}-${model.po_alpha}
 
 
 ckpt:
@@ -118,6 +121,7 @@ trainer:
   max_epochs: 200
   precision: 32-true # set '32-true' if use aft encoder
   accumulate_grad_batches: 1
+  gradient_clip_val: 1.0
   # set 'wandb' if use wandb, 'tensorboard' if use tensorboard, 'null' otherwise
   logger: null
   default_root_dir: ${save_dir}

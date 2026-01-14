@@ -124,6 +124,7 @@ class VAMDecoder(AttentionModelDecoder):
             dist = torch.cdist(locs, locs, p=2)
             
         bias = -dist
+        # bias = -(dist + 1e-10).log()
 
         # Organize in a dataclass for easy access
         return BiasCache(
@@ -219,7 +220,9 @@ class VAMDecoder(AttentionModelDecoder):
         if (any(name in self.env_name for name in ["sym", "tsp", "shpp"]) and td["i"][(0,) * td["i"].dim()].item() < 1):
             pass # not connected
         else:
-            logits = logits + alpha * bias
+            n = 100 if self.env_name == "tsp" else 101
+            logits = logits + alpha * math.log(bias.shape[-1], n) * bias
+            # logits = logits + alpha * bias
         
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here

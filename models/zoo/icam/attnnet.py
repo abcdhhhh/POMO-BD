@@ -6,7 +6,7 @@ import torch.nn as nn
 from torch import Tensor
 
 from models.zoo.icam.attention import AFTAttention, AFTCrossAttention
-from rl4co.models.nn.ops import TransformerFFN
+from .ops import TransformerFFN
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -18,15 +18,16 @@ class AFTLayer(nn.Module):
         embed_dim: int,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
+        activation: str = "relu",
         idt: bool = False,
         bias: bool = False,
     ):
         super().__init__()  
         self.aft = AFTAttention(embed_dim=embed_dim, bias=bias, idt=idt)
-        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization)
+        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
 
     def forward(self, x, dist, attn_mask=None):
-        x_out = x + self.aft(x, dist, attn_mask)
+        x_out = self.aft(x, dist, attn_mask)
         x = self.ffn(x_out, x)
         return x
 
@@ -36,6 +37,7 @@ class AFTNetwork(nn.Module):
         num_layers: int,
         embed_dim: int,
         normalization: str = "batch",
+        activation: str = "relu",
         idt: bool = False,
         feedforward_hidden: int = 512,
     ):
@@ -46,6 +48,7 @@ class AFTNetwork(nn.Module):
                     embed_dim=embed_dim,
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
+                    activation=activation,
                     idt=idt,
                 )
                 for _ in range(num_layers)
@@ -71,15 +74,16 @@ class MatAFTLayer(nn.Module):
         embed_dim: int,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
+        activation: str = "relu",
         idt: bool = False,
         bias: bool = False,
     ):
         super().__init__()
         self.row_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=idt)
         self.col_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=idt)
-        
-        self.F_a = TransformerFFN(embed_dim, feedforward_hidden, normalization)
-        self.F_b = TransformerFFN(embed_dim, feedforward_hidden, normalization)
+
+        self.F_a = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
+        self.F_b = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
 
 
     def forward(self, row_emb, col_emb, dmat, attn_mask=None):
@@ -105,6 +109,7 @@ class MatAFTNetwork(nn.Module):
         num_layers: int,
         embed_dim: int,
         normalization: str = "batch",
+        activation: str = "relu",
         idt: bool = False,
         feedforward_hidden: int = 512,
     ):
@@ -115,6 +120,7 @@ class MatAFTNetwork(nn.Module):
                     embed_dim=embed_dim,
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
+                    activation=activation,
                     idt=idt,
                 )
                 for _ in range(num_layers)
@@ -141,6 +147,7 @@ class HeterAFTLayer(nn.Module):
         embed_dim: int,
         feedforward_hidden: int = 512,
         normalization: Optional[str] = "batch",
+        activation: str = "relu",
         idt: bool = False,
         bias: bool = False,
     ):
@@ -148,7 +155,7 @@ class HeterAFTLayer(nn.Module):
         self.all_aft = AFTAttention(embed_dim=embed_dim, bias=bias, idt=idt)
         self.d2p_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=True)
         self.p2d_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=True)
-        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization)
+        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
 
 
     def forward(self, x, dist, attn_mask=None):
@@ -177,7 +184,7 @@ class HeterAFTLayer(nn.Module):
         p_out = self.d2p_aft(x_p, x_d, dist_pd)
         d_out = self.p2d_aft(x_d, x_p, dist_dp)
         all_out = self.all_aft(x, dist, attn_mask)
-        x_out = x + all_out + torch.cat([depot_out, p_out, d_out], dim=1)
+        x_out = all_out + torch.cat([depot_out, p_out, d_out], dim=1)
         x = self.ffn(x_out, x)
         return x
 
@@ -187,6 +194,7 @@ class HeterAFTNetwork(nn.Module):
         num_layers: int,
         embed_dim: int,
         normalization: str = "batch",
+        activation: str = "relu",
         idt: bool = False,
         feedforward_hidden: int = 512,
     ):
@@ -197,6 +205,7 @@ class HeterAFTNetwork(nn.Module):
                     embed_dim=embed_dim,
                     feedforward_hidden=feedforward_hidden,
                     normalization=normalization,
+                    activation=activation,
                     idt=idt,
                 )
                 for _ in range(num_layers)

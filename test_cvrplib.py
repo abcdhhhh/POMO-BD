@@ -188,6 +188,7 @@ for instance in instances:
     td_am = env.reset(td=td.clone()).to(device)
     td_scam = env.reset(td=td.clone()).to(device)
     td_vam = env.reset(td=td.clone()).to(device)
+    td_vam_false = env.reset(td=td.clone()).to(device)
 
     augment = CompositeAugmentation(
         num_augment_list=[8],
@@ -197,17 +198,21 @@ for instance in instances:
     td_am = augment(td_am)
     td_scam = augment(td_scam)
     td_vam = augment(td_vam)
+    td_vam_false = augment(td_vam_false)
 
     model_am = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "am", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, })
     model_scam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "scam", "pointer": None, "context_k": 1, "tanh_clipping": 50.0, })
     model_vam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, "logit_bias": True,})
+    model_vam_false = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, "logit_bias": False, })
     
     path_am = "outputs/checkpoints/cvrp100/am-am-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
     path_scam = "outputs/checkpoints/cvrp100/am-scam-None-100[]-multistart_sampling-1-False-0.0-v1/last.ckpt"
     path_vam = "outputs/checkpoints/cvrp100/am-vam-None-100[]-multistart_sampling-0-True-0.0-v1/last.ckpt"
+    path_vam_false = "outputs/checkpoints/cvrp100/am-vam-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
     model_am.load_state_dict(torch.load(path_am, weights_only=False)['state_dict'])
     model_scam.load_state_dict(torch.load(path_scam, weights_only=False)['state_dict'])
     model_vam.load_state_dict(torch.load(path_vam, weights_only=False)['state_dict'])
+    model_vam_false.load_state_dict(torch.load(path_vam_false, weights_only=False)['state_dict'])
 
     policy_am = model_am.policy.to(device)
     out_am = policy_am.forward(
@@ -257,4 +262,20 @@ for instance in instances:
     unnormalized_td = env.reset(td_orginal.clone()).to(device)
     cost_vam = -get_reward_unnormalized(unnormalized_td, action)
 
-    print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_scam:},{(cost_scam - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam:},{(cost_vam - optimal_cost) / optimal_cost * 100:.2f}%,')
+    policy_vam_false = model_vam_false.policy.to(device)
+    out_vam_false = policy_vam_false.forward(
+        td_vam_false.clone(), 
+        env, 
+        phase="test", 
+        decode_type="multistart_greedy", 
+        num_starts=num_loc-1, 
+        multistart=True,
+    )
+    reward = out_vam_false['reward']
+    actions = out_vam_false['actions']
+    max_reward, max_idxs = reward.max(dim=-1)
+    action = actions[max_idxs][None, :]
+    unnormalized_td = env.reset(td_orginal.clone()).to(device)
+    cost_vam_false = -get_reward_unnormalized(unnormalized_td, action)
+
+    print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_scam:},{(cost_scam - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam:},{(cost_vam - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam_false:},{(cost_vam_false - optimal_cost) / optimal_cost * 100:.2f}%,')
