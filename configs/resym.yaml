@@ -72,7 +72,7 @@ model:
     # for cab decoder
     context_k: 0
     logit_bias: False
-    # choose from 'cab', 'am', 'matnet', 'scam', 'vam'
+    # choose from 'cab', 'am', 'matnet', 'vam'
     decoder: am
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'reld', 'null', else set 'null'
     pointer: null
@@ -101,7 +101,7 @@ model:
     log_on_step: True
 
 logger:
-  # project: scam
+  # project: am
   # tags: ["${env_name}"]
   # group: ${env_name}${num_loc}
   save_dir: ${save_dir}
