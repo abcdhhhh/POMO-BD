@@ -1,6 +1,6 @@
 # train/val/test
 mode: train
-env_name: symcvrp
+env_name: sympctsp
 num_loc: 100
 embed_dim: 128
 num_heads: 8
@@ -21,14 +21,14 @@ env:
   # test_file: ${env_name}/${env_name}${num_loc}_test_seed1234.npz
   # val_file: tsp/tsp${num_loc}_val_seed4321.npz
   # test_file: tsp/tsp${num_loc}_test_seed1234.npz
-  val_file: vrp/vrp${num_loc}_val_seed4321.npz
-  test_file: vrp/vrp${num_loc}_test_seed1234.npz
+  # val_file: vrp/vrp${num_loc}_val_seed4321.npz
+  # test_file: vrp/vrp${num_loc}_test_seed1234.npz
   # val_file: vrptw/vrptw${num_loc}_val_seed4321.npz
   # test_file: vrptw/vrptw${num_loc}_test_seed1234.npz
   # val_file: op/op_dist${num_loc}_val_seed4321.npz
   # test_file: op/op_dist${num_loc}_test_seed1234.npz
-  # val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
-  # test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
+  val_file: pctsp/pctsp${num_loc}_val_seed4321.npz
+  test_file: pctsp/pctsp${num_loc}_test_seed1234.npz
   # val_file: pdp/pdp${num_loc}_val_seed4321.npz
   # test_file: pdp/pdp${num_loc}_test_seed1234.npz
 
@@ -71,9 +71,9 @@ model:
     idt: False
     # for cab decoder
     context_k: 0
-    logit_bias: False
+    logit_bias: True
     # choose from 'cab', 'am', 'matnet', 'vam'
-    decoder: am
+    decoder: vam
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'reld', 'null', else set 'null'
     pointer: null
     embed_dim: ${embed_dim}
