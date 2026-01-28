@@ -193,7 +193,6 @@ class ReSymPolicy(AutoregressivePolicy):
                 moe_kwargs=moe_kwargs["decoder"],
             )
         elif decoder == "vam":
-            assert not isinstance(encoder, str) or "aft" not in encoder, "VAM decoder cannot be used with AFT encoder"
             from models.zoo.vam.decoder import VAMDecoder
             decoder = VAMDecoder(
                 embed_dim=embed_dim,

@@ -56,7 +56,7 @@ class SymCVRPTWEnv(SymCVRPEnv):
         generator_params: parameters for the generator
     """
 
-    name = "cvrptw"
+    name = "symcvrptw"
 
     def __init__(
         self,

@@ -3,5 +3,4 @@ outputs/
 data/
 examples/
 vrplib/
-tsplib/
 tmp.py

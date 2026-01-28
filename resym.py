@@ -31,6 +31,9 @@ def run(cfg: DictConfig):
             from envs.sympctsp.generator import SymPCTSPGenerator
             generator = SymPCTSPGenerator(**env_params.generator_params)
             env = get_env(generator=generator, **env_params)
+        elif cfg.env_name == "mtvrp":
+            from envs.mtvrp.env import MTVRPEnv
+            env = MTVRPEnv(**env_params)
         else:
             env = get_env(**env_params) 
         model = ReSym(
