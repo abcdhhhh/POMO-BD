@@ -35,7 +35,6 @@ class ICAMDecoder(AttentionModelDecoder):
         out_bias_pointer_attn: bool = False,
         linear_bias: bool = False,
         use_graph_context: bool = True,
-        context_k: int = 0,
         logit_bias: bool = True,
         check_nan: bool = True,
         sdpa_fn: callable = None,
@@ -45,7 +44,6 @@ class ICAMDecoder(AttentionModelDecoder):
         self.encoder_type = encoder_type
 
         self.is_aft = isinstance(pointer, str) and "aft" in pointer
-        self.context_k = context_k
         self.logit_bias = logit_bias
         
         if pointer == "aft":
@@ -105,9 +103,6 @@ class ICAMDecoder(AttentionModelDecoder):
             self.alpha_aft = nn.Parameter(torch.tensor(1.))
         if logit_bias:
             self.alpha = nn.Parameter(torch.tensor(1.))
-
-        if self.context_k:
-            self.W_top = nn.Linear(context_k * embed_dim, embed_dim, bias=False)
 
     def pre_decoder_hook(
         self, td, env, embeddings, num_starts: int = 0
@@ -255,21 +250,6 @@ class ICAMDecoder(AttentionModelDecoder):
             bias = gather_by_index(cached.bias, current_node)
               
         mask = td["action_mask"]
-        if self.context_k:
-            n_unvisited = mask.sum(-1, keepdim=True)
-            top_k_mask = (torch.arange(self.context_k, device=mask.device).unsqueeze(0) < n_unvisited).flatten(1)
-            
-            masked_bias = bias.masked_fill(~mask, float('-inf'))
-            top_k_bias, top_k_indices = masked_bias.topk(self.context_k, dim=-1)
-            top_k_indices = top_k_indices.flatten(1)
-
-            # top_k embeddings
-            top_k_embeddings = gather_by_index(cached.node_embeddings, top_k_indices).masked_fill(~top_k_mask.unsqueeze(-1), 0.0)
-            top_k_embeddings = rearrange(top_k_embeddings, "b (s k) e -> b s (k e)", s=num_starts, k=self.context_k)
-
-            # top_k_embeddings = torch.cat([top_k_embeddings, (-top_k_bias).exp()], dim=-1)  # append bias
-
-            glimpse_q = glimpse_q + self.W_top(top_k_embeddings)
 
         # Compute logits
         if self.is_aft:

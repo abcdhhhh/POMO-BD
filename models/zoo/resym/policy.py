@@ -29,7 +29,6 @@ class ReSymPolicy(AutoregressivePolicy):
         normalization: str = "instance",
         activation: str = "relu",
         idt: bool = False,
-        context_k: int = 0,
         logit_bias: bool = False,
         feedforward_hidden: int = 512,
         env_name: Union[str, RL4COEnvBase] = "tsp",
@@ -95,7 +94,6 @@ class ReSymPolicy(AutoregressivePolicy):
             from rl4co.models.zoo.am.encoder import AttentionModelEncoder
             if encoder == "te":
                 from models.zoo.rf.attnnet import TENetwork
-                assert encoder_network is None, "Custom encoder_network not supported for TE."
                 encoder_network = TENetwork(
                     num_layers=num_encoder_layers,
                     embed_dim=embed_dim,
@@ -152,7 +150,6 @@ class ReSymPolicy(AutoregressivePolicy):
                 out_bias_pointer_attn=out_bias_pointer_attn,
                 linear_bias=linear_bias_decoder,
                 use_graph_context=use_graph_context,
-                context_k=context_k,
                 logit_bias=logit_bias,
                 check_nan=check_nan,
                 sdpa_fn=sdpa_fn_decoder,

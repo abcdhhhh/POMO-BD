@@ -119,18 +119,15 @@ def generate_dataset_(
         for distribution in distributions or [None]:
             for graph_size in graph_sizes:
                 if filename is None:
-                    datadir = os.path.join(data_dir, problem)
+                    datadir = os.path.join(data_dir, problem, name)
                     os.makedirs(datadir, exist_ok=True)
                     fname = os.path.join(
                         datadir,
-                        "{}{}{}_{}_seed{}.npz".format(
-                            problem,
+                        "{}{}.npz".format(
+                            graph_size,
                             "_{}".format(distribution)
                             if distribution is not None
                             else "",
-                            graph_size,
-                            name,
-                            seed,
                         ),
                     )
                 else:
@@ -447,7 +444,8 @@ def generate_mtvrp_data(
     return data
 
 if __name__ == '__main__':
-    for problem, data_distribution in [("vrptw", "all"), ("kp", "all"), ("vrp", "all"), ("op", "dist"), ("pctsp", "all"), ("tsp", "all"), ("pdp", "all")]: #, ("atsp", "all")]:
+    distributions = [("vrptw", "all"), ("kp", "all"), ("vrp", "all"), ("op", "all"), ("pctsp", "all"), ("tsp", "all"), ("pdp", "all")] #, ("atsp", "all")]
+    for problem, data_distribution in tqdm(distributions):
         # set sizes  
         if problem == "tsp":
             sizes = [(10000, [20, 50, 100]), (1000, [200]), (128, [500, 1000, 2000, 5000]), (16, [10000])]
@@ -493,7 +491,7 @@ if __name__ == '__main__':
             for graph_size in [50, 100]:
                 generate_dataset_(
                     data_dir="./data",
-                    filename=f"./data/mtvrp/{problem}/{graph_size}_{name}_seed{seed}.npz",
+                    filename=f"./data/mtvrp/{problem}/{name}/{graph_size}.npz",
                     name=name,
                     seed=seed,
                     problem="mtvrp",

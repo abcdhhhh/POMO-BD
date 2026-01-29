@@ -206,9 +206,9 @@ for instance in instances:
     # # td_vam_sym = augment(td_vam_sym)
 
 
-    # model_am = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "am", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, })
-    # model_vam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, "logit_bias": True,})
-    # model_vam_false = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, "logit_bias": False, })
+    # model_am = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "am", "pointer": None, "tanh_clipping": 50.0, })
+    # model_vam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": True,})
+    # model_vam_false = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": False, })
     # model_am_sym = ReSym(env=sym_env, policy_kwargs={
     #         "encoder": "am", "decoder": "am", "pointer": None,     
     #         "init_embedding": SymVRPInitEmbedding(128),

@@ -171,9 +171,9 @@ for problem in problems:
     td_vam = augment(td_vam)
     td_vam_false = augment(td_vam_false)
 
-    model_am = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "am", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, })
-    model_vam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, "logit_bias": True, })
-    model_vam_false = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "context_k": 0, "tanh_clipping": 50.0, "logit_bias": False, })
+    model_am = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "am", "pointer": None, "tanh_clipping": 50.0, })
+    model_vam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": True, })
+    model_vam_false = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": False, })
     
     path_am = "outputs/checkpoints/tsp100/am-am-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
     path_vam = "outputs/checkpoints/tsp100/am-vam-None-100[]-multistart_sampling-0-True-0.0-v1/last.ckpt"

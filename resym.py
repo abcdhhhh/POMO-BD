@@ -12,7 +12,7 @@ from rl4co.envs import get_env, ENV_REGISTRY
 
 from models.zoo.resym.model import ReSym
 
-@hydra.main(config_path="./configs/", config_name="resym.yaml", version_base="1.3")
+@hydra.main(config_path="configs", config_name="resym", version_base="1.3")
 def run(cfg: DictConfig):
     torch.manual_seed(cfg.get("seed", 1234))
     L.seed_everything(cfg.get("seed", 1234))
