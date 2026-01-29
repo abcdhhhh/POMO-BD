@@ -91,8 +91,20 @@ class ReSymPolicy(AutoregressivePolicy):
                 feedforward_hidden=feedforward_hidden,
                 net=encoder_network,
             )
-        elif encoder == "am":
+        elif encoder in ["am", "te"]:
             from rl4co.models.zoo.am.encoder import AttentionModelEncoder
+            if encoder == "te":
+                from models.zoo.rf.attnnet import TENetwork
+                assert encoder_network is None, "Custom encoder_network not supported for TE."
+                encoder_network = TENetwork(
+                    num_layers=num_encoder_layers,
+                    embed_dim=embed_dim,
+                    num_heads=num_heads,
+                    normalization=normalization,
+                    activation=activation,
+                    feedforward_hidden=feedforward_hidden,
+                    sdpa_fn=sdpa_fn_encoder,
+                )
             encoder = AttentionModelEncoder(
                 embed_dim=embed_dim,
                 init_embedding=init_embedding,

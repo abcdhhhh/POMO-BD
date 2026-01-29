@@ -74,7 +74,6 @@ class TransformerFFN(nn.Module):
 
         return x
     
-    
 class SwiGLU(nn.Module):
     def __init__(self):
         super().__init__()
@@ -83,6 +82,7 @@ class SwiGLU(nn.Module):
         x1, x2 = x.chunk(2, dim=-1)
         x = F.silu(x1) * x2
         return x
+    
     
 if __name__ == "__main__":
     # simple test

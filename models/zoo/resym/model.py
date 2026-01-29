@@ -39,6 +39,41 @@ class ReSym(REINFORCE):
     ):
         self.save_hyperparameters(logger=False)
 
+        if "mtvrp" in env.name:
+            alpha = kwargs.pop("alpha", 0.1)
+            epsilon = kwargs.pop("epsilon", 1e-5)
+            normalize_reward = kwargs.pop("normalize_reward", "none")
+            self.norm_operation = kwargs.pop("norm_operation", "div")  # "div" or "sub"
+
+            from models.zoo.rf.reward_normalization import (
+                CumulativeMean,
+                ExponentialMean,
+                NoNormalization,
+                ZNormalization,
+            )
+            allowed_normalizations = [
+                "cumulative",
+                "exponential",
+                "none",
+                "normal",
+                "z",
+                "z-score",
+            ]
+            assert (
+                normalize_reward in allowed_normalizations
+            ), f"normalize_reward must lie in {allowed_normalizations}."
+
+            if normalize_reward == "cumulative":
+                self.normalization = CumulativeMean()
+            elif normalize_reward == "exponential":
+                self.normalization = ExponentialMean(alpha=alpha)
+            elif normalize_reward == "none":
+                self.normalization = NoNormalization()
+            elif normalize_reward in ["normal", "z", "z-score"]:
+                self.normalization = ZNormalization(alpha=alpha, epsilon=epsilon)
+            else:
+                raise NotImplementedError("Normalization not implemented")
+
         if policy is None:
             policy = ReSymPolicy(env_name=env.name, **policy_kwargs)
 
@@ -115,6 +150,16 @@ class ReSym(REINFORCE):
         # Training phase
         if phase == "train":
             log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
+            if "mtvrp" in self.env.name:
+                normalized_reward, norm_vals = self.normalization(
+                    td=unbatchify(x=td, shape=n_aug),
+                    rewards=reward,
+                    operation=self.norm_operation,
+                )
+                out.update({"norm_vals": norm_vals, "norm_reward": normalized_reward})
+                if n_start > 1:
+                    max_norm_reward, _ = normalized_reward.max(dim=-1)
+                    out.update({"max_norm_reward": max_norm_reward})
             if n_start > 1:
                 max_reward, max_idxs = reward.max(dim=-1)
                 out.update({"max_reward": max_reward})
@@ -123,7 +168,7 @@ class ReSym(REINFORCE):
                 max_aug_reward, max_idxs = reward_.max(dim=1)
                 out.update({"max_aug_reward": max_aug_reward})
 
-            self.calculate_loss(td, batch, out, reward, log_likelihood)
+            self.calculate_loss(td, batch, out, normalized_reward if "mtvrp" in self.env.name else reward, log_likelihood)
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_start > 1:

@@ -311,7 +311,7 @@ def generate_mtvrp_data(
     max_demand=9,
     scale_demand=True,
     max_time=4.6,
-    max_distance_limit=3.0,  # 2sqrt(2) ~= 2.8
+    max_distance_limit=2.8,  # 2sqrt(2) ~= 2.8
     speed=1.0,
     num_depots=1,  # number of depots, only used for multi-depot problems
     variant="CVRP",

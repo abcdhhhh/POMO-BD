@@ -7,7 +7,7 @@ conda create -n rl4co python=3.12
 conda activate rl4co
 cd rl4co
 pip install -e .
-pip install tensorboard tsplib95 vrplib
+pip install tensorboard tsplib95 vrplib pyvrp ortools
 ```
 
 if cuda version is 11, then reinstall pytorch by
