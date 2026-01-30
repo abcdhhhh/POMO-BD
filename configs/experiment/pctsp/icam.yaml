@@ -1,0 +1,11 @@
+# @package _global_
+
+defaults:
+  - /experiment/icam.yaml
+
+env_name: pctsp
+env:
+  val_file: pctsp/val/${num_loc}.npz
+  test_file: pctsp/test/${num_loc}.npz
+
+ckpt_path: null

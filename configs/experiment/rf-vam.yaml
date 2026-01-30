@@ -1,0 +1,9 @@
+# @package _global_
+
+defaults:
+  - rf.yaml
+
+model:
+  policy_kwargs:
+    decoder: vam
+    logit_bias: True

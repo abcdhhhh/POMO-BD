@@ -27,7 +27,7 @@ python generate_data.py
 modify `configs/resym.yaml`, and then run
 
 ```bash
-python resym.py
+CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=rf-50
 ```
 
 # View

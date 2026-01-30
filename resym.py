@@ -19,6 +19,8 @@ def run(cfg: DictConfig):
 
     env_params = cfg.env
     if cfg.env_name in ENV_REGISTRY:
+        from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
+        model_params_dict = OmegaConf.to_container(cfg.model, resolve=True)
         if cfg.env_name == "cvrptw":
             from envs.symcvrptw.generator import SymCVRPTWGenerator
             generator = SymCVRPTWGenerator(**env_params.generator_params)
@@ -34,11 +36,17 @@ def run(cfg: DictConfig):
         elif cfg.env_name == "mtvrp":
             from envs.mtvrp.env import MTVRPEnv
             env = MTVRPEnv(**env_params)
+            from models.nn.env_embeddings.mtvrp import MTVRPInitEmbeddingRouteFinder, MTVRPContextEmbeddingRouteFinder
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": MTVRPInitEmbeddingRouteFinder(cfg.embed_dim),
+                "context_embedding": MTVRPContextEmbeddingRouteFinder(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            })
         else:
             env = get_env(**env_params) 
         model = ReSym(
             env=env,
-            **cfg.model,
+            **model_params_dict,
         )
     else:
         from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
