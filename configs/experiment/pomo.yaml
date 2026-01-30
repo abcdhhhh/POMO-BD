@@ -36,10 +36,10 @@ model:
 
   # keep batch_size * num_augment_train a constant for fair comparison
   num_augment_train_list: []
-  num_augment_list: [8]
+  num_augment_list: []
   # choose from 'dihedral8', 'symmetric', 'pdp', 'atsp'
   augment_fn_train_list: []
-  augment_fn_list: ['dihedral8']
+  augment_fn_list: []
   # set ['locs'] for euclidean routing, ['cost_matrix'] for atsp
   feats: ['locs']
 
@@ -49,7 +49,7 @@ model:
   po_alpha: 0.
   
   # set '128' for polynet
-  num_starts: ${num_loc}
+  num_starts: null # ${num_loc}
   # now only support 'shared'
   baseline: shared
 

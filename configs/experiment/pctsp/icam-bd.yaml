@@ -6,7 +6,7 @@ defaults:
 env_name: sympctsp
 ckpt_path: null # pretrained/op100/icam-bd/199.ckpt
 model:
-  num_starts: 101
+  num_starts: null
 
 logger:
   name: pctsp${num_loc}/bd/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.po_alpha}-${model.batch_size}-${model.optimizer_kwargs.lr}
