@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 
 from tensordict.tensordict import TensorDict
@@ -379,6 +381,9 @@ class SymMTVRPEnv(MTVRPEnv):
             ).all(), "Used more backhaul than capacity: {} / {}".format(
                 used_cap_b, td["vehicle_capacity"]
             )
+
+    def get_num_starts(self, td):
+        return super().get_num_starts() + 1
     
     def select_start_nodes(self, td, num_starts):
         num_loc_with_depot = td["locs"].shape[-2]

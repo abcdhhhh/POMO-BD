@@ -20,6 +20,7 @@ env:
     # for MTVRP
     variant_preset: all
   load_solutions: False
+  select_start_nodes_fn: all
   check_solution: False # optimization
   data_dir: ./data/mtvrp/
 
