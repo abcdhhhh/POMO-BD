@@ -24,7 +24,7 @@ class AFTLayer(nn.Module):
     ):
         super().__init__()  
         self.aft = AFTAttention(embed_dim=embed_dim, bias=bias, idt=idt)
-        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
+        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, True, normalization, activation)
 
     def forward(self, x, dist, attn_mask=None):
         x_out = self.aft(x, dist, attn_mask)
@@ -82,8 +82,8 @@ class MatAFTLayer(nn.Module):
         self.row_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=idt)
         self.col_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=idt)
 
-        self.F_a = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
-        self.F_b = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
+        self.F_a = TransformerFFN(embed_dim, feedforward_hidden, True, normalization, activation)
+        self.F_b = TransformerFFN(embed_dim, feedforward_hidden, True, normalization, activation)
 
 
     def forward(self, row_emb, col_emb, dmat, attn_mask=None):
@@ -155,7 +155,7 @@ class HeterAFTLayer(nn.Module):
         self.all_aft = AFTAttention(embed_dim=embed_dim, bias=bias, idt=idt)
         self.d2p_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=True)
         self.p2d_aft = AFTCrossAttention(embed_dim=embed_dim, bias=bias, idt=True)
-        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
+        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, True, normalization, activation)
 
 
     def forward(self, x, dist, attn_mask=None):

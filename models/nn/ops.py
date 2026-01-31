@@ -41,21 +41,21 @@ class Normalization(nn.Module):
             return x
         
 class TransformerFFN(nn.Module):
-    def __init__(self, embed_dim, feed_forward_hidden, normalization="batch", activation="relu") -> None:
+    def __init__(self, embed_dim, feed_forward_hidden, bias=False, normalization="batch", activation="relu") -> None:
         super().__init__()
 
         if activation == "relu":
             ffn = nn.Sequential(
-                nn.Linear(embed_dim, feed_forward_hidden),
+                nn.Linear(embed_dim, feed_forward_hidden, bias=bias),
                 nn.ReLU(),
-                nn.Linear(feed_forward_hidden, embed_dim),
+                nn.Linear(feed_forward_hidden, embed_dim, bias=bias),
             )
         elif activation == "swiglu":
             feed_forward_hidden = feed_forward_hidden * 2 // 3
             ffn = nn.Sequential(
-                nn.Linear(embed_dim, feed_forward_hidden * 2),
+                nn.Linear(embed_dim, feed_forward_hidden * 2, bias=bias),
                 SwiGLU(),
-                nn.Linear(feed_forward_hidden, embed_dim),
+                nn.Linear(feed_forward_hidden, embed_dim, bias=bias),
             )
         else:
             raise ValueError(f"Unsupported activation: {activation}")

@@ -1,13 +1,13 @@
 # @package _global_
 
 # train/val/test
-mode: test
+mode: train
 env_name: mtvrp
 num_loc: 50
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/mtvrp50/rf-te/299_-10.9144_-10.5382.ckpt
+ckpt_path: null # pretrained/mtvrp50/rf-te/299_-10.9144_-10.5382.ckpt
 
 env:
   env_name: ${env_name}
@@ -24,16 +24,16 @@ env:
   check_solution: False # optimization
   data_dir: ./data/mtvrp/
 
-  val_file: [cvrp/val/50.npz, ovrpbltw/val/50.npz]
-  test_file: [cvrp/test/50.npz, ovrp/test/50.npz, ovrpb/test/50.npz, ovrpbl/test/50.npz,
-              ovrpbltw/test/50.npz, ovrpbtw/test/50.npz, ovrpl/test/50.npz, ovrpltw/test/50.npz,
-              ovrptw/test/50.npz, vrpb/test/50.npz, vrpl/test/50.npz, vrpbltw/test/50.npz,
-              vrpbtw/test/50.npz, vrpbl/test/50.npz, vrpltw/test/50.npz, vrptw/test/50.npz,
+  val_file: [cvrp/val/50.npz, ovrpbltw/val/50.npz, cvrp/val/100.npz]
+  test_file: [cvrp/test/50.npz, ovrp/test/50.npz, vrpb/test/50.npz, vrpbl/test/50.npz,
+              vrpbtw/test/50.npz, ovrpb/test/50.npz, ovrpbltw/test/50.npz, ovrpl/test/50.npz,
+              vrptw/test/50.npz, vrpl/test/50.npz, ovrptw/test/50.npz, vrpbltw/test/50.npz,
+              vrpltw/test/50.npz, ovrpbl/test/50.npz, ovrpbtw/test/50.npz, ovrpltw/test/50.npz,
   ]
-  test_dataloader_names: [cvrp50, ovrp50, ovrpb50, ovrpbl50,
-                         ovrpbltw50, ovrpbtw50, ovrpl50, ovrpltw50,
-                         ovrptw50, vrpb50, vrpl50, vrpbltw50,
-                         vrpbtw50, vrpbl50, vrpltw50, vrptw50,
+  test_dataloader_names: [cvrp50, ovrp50, vrpb50, vrpbl50,
+                         vrpbtw50, ovrpb50, ovrpbltw50, ovrpl50,
+                         vrptw50, vrpl50, ovrptw50, vrpbltw50,
+                         vrpltw50, ovrpbl50, ovrpbtw50, ovrpltw50,
   ]
 
 model:
@@ -73,7 +73,7 @@ model:
     encoder: te
     # for aft encoder
     idt: False
-    # for cab decoder
+    # for cab/vam decoder
     logit_bias: False
     # choose from 'cab', 'am', 'matnet', 'vam'
     decoder: am
@@ -132,7 +132,7 @@ trainer:
   accumulate_grad_batches: 1
   gradient_clip_val: 1.0
   # set 'wandb' if use wandb, 'tensorboard' if use tensorboard, 'null' otherwise
-  logger: null
+  logger: tensorboard
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 

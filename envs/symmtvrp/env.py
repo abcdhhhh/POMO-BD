@@ -267,18 +267,6 @@ class SymMTVRPEnv(MTVRPEnv):
         can_visit[:, 0] = ~((curr_node == 0) & (can_visit[:, 1:].sum(-1) > 0))
         return can_visit
 
-    def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
-        # Append depot to actions and get sequence of locations
-        go_from = torch.cat((torch.zeros_like(actions[:, :1]), actions), dim=1)
-        go_to = torch.roll(go_from, -1, dims=1)  # [b, seq_len]
-        loc_from = gather_by_index(td["locs"], go_from)
-        loc_to = gather_by_index(td["locs"], go_to)
-
-        # Get tour length. If route is open and goes to depot, don't count the distance
-        distances = get_distance(loc_from, loc_to)  # [b, seq_len]
-        tour_length = (distances * ~((go_to == 0) & td["open_route"])).sum(-1)  # [b]
-        return -tour_length  # reward is negative cost
-
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
         batch_size, n_loc = td["demand_linehaul"].size()

@@ -27,7 +27,7 @@ class TELayer(nn.Module):
         self.mha = MultiHeadAttention(
             embed_dim=embed_dim, num_heads=num_heads, bias=bias, sdpa_fn=sdpa_fn,
         )
-        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, normalization, activation)
+        self.ffn = TransformerFFN(embed_dim, feedforward_hidden, bias, normalization, activation)
 
     def forward(self, x, attn_mask=None):
         x_norm = self.ffn.ops["norm1"](x)

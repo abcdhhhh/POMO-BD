@@ -174,7 +174,7 @@ def generate_dataset_(
                         max_demand=kwargs.get("max_demand", 9),
                         scale_demand=kwargs.get("scale_demand", True),
                         max_time=kwargs.get("max_time", 4.6),
-                        max_distance_limit=kwargs.get("max_distance_limit", 3.0),
+                        max_distance_limit=kwargs.get("max_distance_limit", 2.8),
                         speed=kwargs.get("speed", 1.0),
                         num_depots=kwargs.get("num_depots", 1),
                         variant=kwargs.get("variant", "CVRP"),
@@ -496,7 +496,7 @@ if __name__ == '__main__':
                     seed=seed,
                     problem="mtvrp",
                     data_distribution="all",
-                    dataset_size=1000,
+                    dataset_size=1000 if name == "test" else 128,
                     graph_sizes=[graph_size],
                     variant=problem,
                 )
