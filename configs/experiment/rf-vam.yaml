@@ -3,7 +3,7 @@
 defaults:
   - rf.yaml
 
-ckpt_path: null # pretrained/mtvrp50/rf-te-vam/299_-10.8645_-10.5130.ckpt
+ckpt_path: pretrained/mtvrp50/rf-te-vam/299_-10.8589_-10.5001.ckpt
 model:
   policy_kwargs:
     decoder: vam

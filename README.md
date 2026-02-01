@@ -24,10 +24,10 @@ python generate_data.py
 
 # Run
 
-modify `configs/resym.yaml`, and then run
+Take routefinder as an example, modify `configs/experiments/rf.yaml`, and then run
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=rf-50
+CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=rf > rf.txt
 ```
 
 # View
