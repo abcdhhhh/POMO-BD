@@ -154,14 +154,15 @@ class SymCVRPTWEnv(SymCVRPEnv):
             )
             first_length = td["first_length"]
 
-        assert (penalty_time >= first_length[..., [0]] - 1e-5).all(), "Penalty time must be greater than first length"
+        d_01 = first_length[..., [0]]
+        assert (d_01 <=  penalty_time + 1e-5).all(), "Penalty time must be greater than first length"
         back_length = gather_by_index(first_length, current_node)[:, None]
 
         # Note: here we do not subtract one as we have to scatter so the first column allows scattering depot
         # Add one dimension since we write a single value
         visited = td["visited"].scatter(-1, current_node, 1)
         # SECTION: get done
-        done = (visited.sum(-1) == visited.size(-1))[..., None] & (used_capacity + first_capacity <= td["vehicle_capacity"] + 1e-5) & (current_time + back_length <= torch.maximum(penalty_time, first_length[..., [0]]))
+        done = (visited.sum(-1) == visited.size(-1))[..., None] & (used_capacity + first_capacity <= td["vehicle_capacity"] + 1e-5) & (current_time + back_length <= penalty_time + 1e-5)
         reward = torch.zeros_like(done)
 
         td.update(

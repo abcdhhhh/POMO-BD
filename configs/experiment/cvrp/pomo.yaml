@@ -1,12 +1,12 @@
 # @package _global_
 
 defaults:
-  - /experiment/pomo.yaml
+  - /experiment/tsp/pomo.yaml
 
 env_name: cvrp
-ckpt_path: pretrained/cvrp100/am-am-None-100[]-multistart_sampling-0-False-0.0/199_-16.3792_-15.9723.ckpt
+
 env:
   val_file: vrp/val/${num_loc}.npz
   test_file: vrp/test/${num_loc}.npz
 
-ckpt_path: null
+ckpt_path: pretrained/cvrp100/am-am-None-100[]-multistart_sampling-0-False-0.0/199_-16.3792_-15.9723.ckpt

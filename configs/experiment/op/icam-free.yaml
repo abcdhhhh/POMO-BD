@@ -1,11 +1,11 @@
 # @package _global_
 
 defaults:
-  - icam.yaml
+  - op/icam.yaml
 
-ckpt_path: null # pretrained/op100/icam-free/199.ckpt
+ckpt_path: pretrained/op100/icam-free/299_32.7600_33.0493.ckpt
 model:
-  num_starts: null
+  num_starts: 101
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: sampling

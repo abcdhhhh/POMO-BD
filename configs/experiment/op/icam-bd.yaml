@@ -1,10 +1,10 @@
 # @package _global_
 
 defaults:
-  - icam.yaml
+  - op/icam.yaml
 
 env_name: symop
-ckpt_path: null # pretrained/op100/icam-bd/199.ckpt
+ckpt_path: pretrained/op100/icam-bd/299_32.1701_33.1703.ckpt
 model:
   num_starts: null
 

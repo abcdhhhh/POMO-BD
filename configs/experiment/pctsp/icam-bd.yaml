@@ -4,7 +4,7 @@ defaults:
   - pctsp/icam.yaml
 
 env_name: sympctsp
-ckpt_path: null # pretrained/op100/icam-bd/199.ckpt
+ckpt_path: pretrained/pctsp100/icam-bd/299_-6.0668_-5.9683.ckpt
 model:
   num_starts: null
 

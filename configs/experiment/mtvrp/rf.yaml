@@ -2,12 +2,12 @@
 
 # train/val/test
 mode: test
-env_name: op
-num_loc: 100
+env_name: mtvrp
+num_loc: 50
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: null
+ckpt_path: pretrained/mtvrp50/rf-te/299_-10.8898_-10.5221.ckpt
 
 env:
   env_name: ${env_name}
@@ -18,28 +18,38 @@ env:
     # for PCTSP
     # max_penalty: 9
     # for MTVRP
-    # variant_preset: all
+    variant_preset: all
   load_solutions: False
+  select_start_nodes_fn: all
   check_solution: False # optimization
-  data_dir: ./data/
+  data_dir: ./data/mtvrp/
 
-  val_file: [op/val/100_dist.npz, op/val/500_dist.npz]
-  test_file: [op/test/100_dist.npz, op/test/500_dist.npz]
+  val_file: [cvrp/val/50.npz, ovrpbltw/val/50.npz, cvrp/val/100.npz]
+  test_file: [cvrp/test/50.npz, ovrp/test/50.npz, vrpb/test/50.npz, vrpbl/test/50.npz,
+              vrpbtw/test/50.npz, ovrpb/test/50.npz, ovrpbltw/test/50.npz, ovrpl/test/50.npz,
+              vrptw/test/50.npz, vrpl/test/50.npz, ovrptw/test/50.npz, vrpbltw/test/50.npz,
+              vrpltw/test/50.npz, ovrpbl/test/50.npz, ovrpbtw/test/50.npz, ovrpltw/test/50.npz,
+  ]
+  test_dataloader_names: [cvrp50, ovrp50, vrpb50, vrpbl50,
+                         vrpbtw50, ovrpb50, ovrpbltw50, ovrpl50,
+                         vrptw50, vrpl50, ovrptw50, vrpbltw50,
+                         vrpltw50, ovrpbl50, ovrpbtw50, ovrpltw50,
+  ]
 
 model:
-  batch_size: 128
+  batch_size: 256
   val_batch_size: 500
   test_batch_size: ${model.val_batch_size}
-  train_data_size: 128000
-  val_data_size: 10000
+  train_data_size: 100000
+  val_data_size: 1000
   test_data_size: ${model.val_data_size}
 
   # keep batch_size * num_augment_train a constant for fair comparison
   num_augment_train_list: []
-  num_augment_list: []
+  num_augment_list: [8]
   # choose from 'dihedral8', 'symmetric', 'pdp', 'atsp'
   augment_fn_train_list: []
-  augment_fn_list: []
+  augment_fn_list: ['dihedral8']
   # set ['locs'] for euclidean routing, ['cost_matrix'] for atsp
   feats: ['locs']
 
@@ -60,27 +70,27 @@ model:
     val_decode_type: multistart_greedy # ${model.policy_kwargs.train_decode_type}
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
-    encoder: aft
+    encoder: te
     # for aft encoder
     idt: False
-    # for cab decoder
-    logit_bias: True
+    # for cab/vam decoder
+    logit_bias: False
     # choose from 'cab', 'am', 'matnet', 'vam'
-    decoder: cab
+    decoder: am
     # if decoder is 'cab', then choose from 'aft', 'poly', 'polyaft', 'reld', 'null', else set 'null'
-    pointer: aft
+    pointer: null
     embed_dim: ${embed_dim}
     num_heads: ${num_heads}
-    tanh_clipping: 50.
+    tanh_clipping: 10.
     num_encoder_layers: 6
-    normalization: instance
+    normalization: rms
     # if encoder is 'aft', 'mataft', 'haft', then choose from 'relu', 'swiglu', else 'relu'
-    activation: relu
+    activation: swiglu
     use_graph_context: False
   
   optimizer: Adam
   optimizer_kwargs:
-    lr: 1e-4
+    lr: 3e-4
     weight_decay: 1e-6
   lr_scheduler:
     "MultiStepLR"
@@ -88,22 +98,28 @@ model:
     milestones: [270, 295]
     gamma: 0.1
   metrics:
-    train: ["loss", "reward", "max_reward"]
+    train: ["loss", "reward", "max_reward", "norm_vals", "norm_reward", "max_norm_reward"]
     val: ["reward", "max_reward", "max_aug_reward"]
     test: ${model.metrics.val}
     log_on_step: True
+
+  # for mtvrp normalization
+  alpha: 0.25
+  epsilon: 1e-5
+  normalize_reward: exponential
+  norm_operation: div
 
 logger:
   # project: am
   # tags: ["${env_name}"]
   # group: ${env_name}${num_loc}
   save_dir: ${save_dir}
-  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.po_alpha}-${model.batch_size}-${model.optimizer_kwargs.lr}
+  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.po_alpha}
 
 
 ckpt:
-  monitor: val/max_reward
-  filename: "{epoch:02d}_{val/reward:.4f}_{val/max_reward:.4f}"
+  monitor: val/max_reward/0
+  filename: "{epoch:02d}_{val/reward/0:.4f}_{val/max_reward/0:.4f}"
   auto_insert_metric_name: False
   save_top_k: -1
   every_n_epochs: 50
@@ -112,7 +128,7 @@ ckpt:
 
 trainer:
   max_epochs: 300
-  precision: 32-true # set '32-true' if use aft encoder
+  precision: 16-mixed # set '32-true' if use aft encoder
   accumulate_grad_batches: 1
   gradient_clip_val: 1.0
   # set 'wandb' if use wandb, 'tensorboard' if use tensorboard, 'null' otherwise
@@ -120,4 +136,4 @@ trainer:
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 
-seed: 1234
+seed: 69420

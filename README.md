@@ -33,5 +33,5 @@ CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=rf > rf.txt
 # View
 
 ```bash
-tensorboard --logdir outputs/cvrp50 --port 6006
+tensorboard --logdir outputs/mtvrp50
 ```
