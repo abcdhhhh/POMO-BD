@@ -7,6 +7,7 @@ from torchrl.data import Bounded, Composite, Unbounded
 
 from rl4co.data.utils import load_npz_to_tensordict
 from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.envs.common.utils import batch_to_scalar
 from rl4co.utils.ops import gather_by_index, get_distance
 from rl4co.utils.pylogger import get_pylogger
 
@@ -35,17 +36,18 @@ class SymMTVRPEnv(MTVRPEnv):
         prev_node, curr_node = td["current_node"], td["action"]
         prev_loc = gather_by_index(td["locs"], prev_node)
         curr_loc = gather_by_index(td["locs"], curr_node)
-        distance = get_distance(prev_loc, curr_loc)[..., None]
+        distances = get_distance(curr_loc[..., None, :], td["locs"]) * ((curr_node[:, None] != 0) | ~td["open_route"])
+        distance = gather_by_index(distances, prev_node, squeeze=False)
 
         # Update current time
         service_time = gather_by_index(
             src=td["service_time"], idx=curr_node, dim=1, squeeze=False
         )
-        start_times = gather_by_index(
+        start_times, end_times = gather_by_index(
             src=td["time_windows"], idx=curr_node, dim=1, squeeze=False
-        )[..., 0]
+        ).permute(2, 0, 1)
         # we cannot start before we arrive and we should start at least at start times
-        curr_time = (curr_node[:, None] != 0) * (
+        curr_time = (curr_node[:, None] != 0) * ~td["done"] * (
             torch.max(td["current_time"] + distance / td["speed"], start_times)
             + service_time
         )
@@ -65,16 +67,57 @@ class SymMTVRPEnv(MTVRPEnv):
 
         # Backhaul (pickup) demands
         # this holds for backhaul_classes 0, 1, and 2:
-        used_capacity_linehaul = (curr_node[:, None] != 0) * (
+        used_capacity_linehaul = (curr_node[:, None] != 0) * ~td["done"] * (
             td["used_capacity_linehaul"] + selected_demand_linehaul
         )
-        used_capacity_backhaul = (curr_node[:, None] != 0) * (
+        used_capacity_backhaul = (curr_node[:, None] != 0) * ~td["done"] * (
             td["used_capacity_backhaul"] + selected_demand_backhaul
         )
 
+        is_first_route = td["is_first_route"] & (curr_node[:, None] != 0)
+        first_capacity_linehaul = td["first_capacity_linehaul"] + selected_demand_linehaul * is_first_route
+        first_capacity_backhaul = td["first_capacity_backhaul"] + selected_demand_backhaul * is_first_route
+        first_node = curr_node if batch_to_scalar(td["i"]) == 0 else td["first_node"]
+
+        if batch_to_scalar(td["i"]) == 0:
+            penalty_time = torch.minimum(end_times, td["time_windows"][:, 0:1, 1] - distance)
+            latest_time = penalty_time + service_time
+            first_distances = distances
+            first_route_length = torch.zeros_like(td["current_route_length"])
+        else:
+            latest_time = td["is_first_route"] * (
+                torch.clamp(td["latest_time"] + distance / td["speed"], start_times, end_times) + service_time
+            )
+            penalty_time = td["penalty_time"] - td["is_first_route"] * torch.maximum(
+                td["latest_time"] + distance / td["speed"] - end_times, torch.zeros_like(td["latest_time"])
+            )
+            penalty_time = torch.nan_to_num(penalty_time, nan=torch.inf)
+            first_distances = td["first_distances"]
+            first_route_length = td["first_route_length"] + td["is_first_route"] * distance
+
+        d_i1 = gather_by_index(first_distances, curr_node)[:, None]
+        d_01 = first_distances[..., [0]]
+        assert (d_01 / td["speed"] <= penalty_time + 1e-5).all(), "Penalty time must be greater than first distance"
+
+
         # Done when all customers are visited
         visited = td["visited"].scatter(-1, curr_node[..., None], True)
-        done = visited.sum(-1) == visited.size(-1)
+
+        all_visited = (visited.sum(-1) == visited.size(-1))[:, None]
+        can_reach_customer = (curr_time + d_i1 / td["speed"] <= penalty_time + 1e-5)
+        exceeds_cap_linehaul = (used_capacity_linehaul + first_capacity_linehaul > td["vehicle_capacity"] + 1e-5)
+        exceeds_cap_backhaul = (used_capacity_backhaul + first_capacity_backhaul > td["vehicle_capacity"] + 1e-5)
+        wrong_order = ((selected_demand_backhaul > 0) & (first_capacity_linehaul > 0))
+        meets_demand_constraint = (
+            ~exceeds_cap_linehaul & ~exceeds_cap_backhaul & ~wrong_order
+        )
+        exceeds_dist_limit = (curr_route_length + d_i1 + first_route_length > td["distance_limit"] + 1e-5)
+        done = (
+            all_visited
+            & can_reach_customer
+            & meets_demand_constraint
+            & ~exceeds_dist_limit
+        )
         reward = torch.zeros_like(
             done
         ).float()  # we use the `get_reward` method to compute the reward
@@ -89,6 +132,17 @@ class SymMTVRPEnv(MTVRPEnv):
                 "used_capacity_linehaul": used_capacity_linehaul,
                 "used_capacity_backhaul": used_capacity_backhaul,
                 "visited": visited,
+
+                "latest_time": latest_time,
+                "penalty_time": penalty_time,
+                "first_distances": first_distances,
+                "first_route_length": first_route_length,
+                "first_node": first_node,
+                "is_first_route": is_first_route,
+                "first_capacity_linehaul": first_capacity_linehaul,
+                "first_capacity_backhaul": first_capacity_backhaul,
+                "i": td["i"] + 1,
+
             }
         )
         td.set("action_mask", self.get_action_mask(td))
@@ -174,6 +228,19 @@ class SymMTVRPEnv(MTVRPEnv):
                     dtype=torch.bool,
                     device=device,
                 ),
+                "is_first_route": torch.ones(
+                    (*batch_size, 1), dtype=torch.bool, device=td.device
+                ),
+                "first_capacity_backhaul": torch.zeros(
+                    (*batch_size, 1), device=device
+                ),
+                "first_capacity_linehaul": torch.zeros(
+                    (*batch_size, 1), device=device
+                ),
+                "done": torch.zeros(
+                    (*batch_size, 1), dtype=torch.bool, device=device
+                ),
+                "i": torch.zeros((*batch_size, 1), dtype=torch.int64, device=device)
             },
             batch_size=batch_size,
             device=device,
@@ -183,6 +250,9 @@ class SymMTVRPEnv(MTVRPEnv):
 
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
+        if batch_to_scalar(td["i"]) == 0:
+            return torch.ones_like(td["visited"])
+        
         curr_node = td["current_node"]  # note that this was just updated!
         locs = td["locs"]
         d_ij = get_distance(
@@ -264,112 +334,32 @@ class SymMTVRPEnv(MTVRPEnv):
         )
 
         # Mask depot: don't visit depot if coming from there and there are still customer nodes I can visit
-        can_visit[:, 0] = ~((curr_node == 0) & (can_visit[:, 1:].sum(-1) > 0))
+        can_visit[:, 0] = ~(curr_node == 0)
+
+        allow = td["done"].squeeze(-1)
+        can_visit[allow, :] = 0
+        can_visit[allow] = can_visit[allow].scatter(-1, td["first_node"][allow, None], 1)
+        
+        try:
+            assert (can_visit.sum(-1) > 0).all(), "No valid actions"
+        except:
+            import pdb; pdb.set_trace()
         return can_visit
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
-        batch_size, n_loc = td["demand_linehaul"].size()
-        locs = td["locs"]
-        n_loc -= 1  # exclude depot
-        sorted_pi = actions.data.sort(1)[0]
+        actions = torch.cat([actions, actions[:, 0:1]], dim=-1)
+        lengths = torch.argmax((actions == actions.roll(shifts=-1, dims=-1)).int(), dim=-1, keepdim=True)
+        assert (lengths > 0).all(), "Invalid tour"
+        shifts = torch.minimum(torch.argmax((actions == 0).int(), dim=-1, keepdim=True), lengths - 1)
+        assert (gather_by_index(actions, shifts) == 0).all(), "Invalid tour, not visiting depot"
+        n = actions.shape[-1]
+        arange = torch.arange(n).to(actions.device).unsqueeze(0)
+        indices = (arange + shifts + 1) % lengths 
+        actions = gather_by_index(actions, indices)
+        actions[arange >= lengths] = 0
 
-        # all customer nodes visited exactly once
-        assert (
-            torch.arange(1, n_loc + 1, out=sorted_pi.data.new())
-            .view(1, -1)
-            .expand(batch_size, n_loc)
-            == sorted_pi[:, -n_loc:]
-        ).all() and (sorted_pi[:, :-n_loc] == 0).all(), "Invalid tour"
-
-        # Distance limits (L)
-        assert (td["distance_limit"] >= 0).all(), "Distance limits must be non-negative."
-
-        # Time windows (TW)
-        d_j0 = get_distance(locs, locs[..., 0:1, :])  # j (next) -> 0 (depot)
-        assert torch.all(td["time_windows"] >= 0.0), "Time windows must be non-negative."
-        assert torch.all(td["service_time"] >= 0.0), "Service time must be non-negative."
-        assert torch.all(
-            td["time_windows"][..., 0] < td["time_windows"][..., 1]
-        ), "there are unfeasible time windows"
-        assert torch.all(
-            td["time_windows"][..., :, 0] + d_j0 + td["service_time"]
-            <= td["time_windows"][..., 0, 1, None]
-        ), "vehicle cannot perform service and get back to depot in time."
-        # check individual time windows
-        curr_time = torch.zeros(batch_size, dtype=torch.float32, device=td.device)
-        curr_node = torch.zeros(batch_size, dtype=torch.int64, device=td.device)
-        curr_length = torch.zeros(batch_size, dtype=torch.float32, device=td.device)
-        for ii in range(actions.size(1)):
-            next_node = actions[:, ii]
-            curr_loc = gather_by_index(td["locs"], curr_node)
-            next_loc = gather_by_index(td["locs"], next_node)
-            dist = get_distance(curr_loc, next_loc)
-
-            # distance limit (L)
-            curr_length = curr_length + dist * ~(
-                td["open_route"].squeeze(-1) & (next_node == 0)
-            )  # do not count back to depot for open route
-            assert torch.all(
-                curr_length <= td["distance_limit"].squeeze(-1)
-            ), "Route exceeds distance limit"
-            curr_length[next_node == 0] = 0.0  # reset length for depot
-
-            curr_time = torch.max(
-                curr_time + dist, gather_by_index(td["time_windows"], next_node)[..., 0]
-            )
-            assert torch.all(
-                curr_time <= gather_by_index(td["time_windows"], next_node)[..., 1]
-            ), "vehicle cannot start service before deadline"
-            curr_time = curr_time + gather_by_index(td["service_time"], next_node)
-            curr_node = next_node
-            curr_time[curr_node == 0] = 0.0  # reset time for depot
-
-        # Demand constraints (C) and (B) and (MB)
-        # we keep track of the current picked up linehaul and backhaul
-        # and the used capacity of both
-        demand_l = td["demand_linehaul"].gather(dim=1, index=actions)
-        demand_b = td["demand_backhaul"].gather(dim=1, index=actions)
-        used_cap_l = torch.zeros_like(td["demand_linehaul"][:, 0])
-        used_cap_b = torch.zeros_like(td["demand_backhaul"][:, 0])
-        for ii in range(actions.size(1)):
-            # reset at depot
-            used_cap_l = used_cap_l * (actions[:, ii] != 0)
-            used_cap_b = used_cap_b * (actions[:, ii] != 0)
-            # increase counters
-            used_cap_l += demand_l[:, ii]
-            used_cap_b += demand_b[:, ii]
-
-            # For backhaul_class 1 (B), we must ensure that if we are carrying backhaul, we are not picking up linehaul
-            assert (
-                (td["backhaul_class"] == 2)
-                | (used_cap_b == 0)
-                | ((td["backhaul_class"] == 1) & ~(demand_l[:, ii] > 0))
-            ).all(), "Cannot pick up linehaul while carrying backhaul due to precedence constraints"
-
-            # For backhaul_class 2 (MB), we cannot pick up linehaul if the used capacity of backhaul is already at the vehicle capacity
-            # also, cannot pick up other backhauls if we are full
-            assert (
-                (td["backhaul_class"] == 1)
-                | (used_cap_b == 0)
-                | (
-                    (td["backhaul_class"] == 2)
-                    & (used_cap_b + demand_l[:, ii] <= td["vehicle_capacity"])
-                )
-            ).all(), "Cannot deliver linehaul, not enough load"
-
-            # Assertions: total used linehaul and backhaul capacity should not exceed vehicle capacity
-            assert (
-                used_cap_l <= td["vehicle_capacity"]
-            ).all(), "Used more linehaul than capacity: {} / {}".format(
-                used_cap_l, td["vehicle_capacity"]
-            )
-            assert (
-                used_cap_b <= td["vehicle_capacity"]
-            ).all(), "Used more backhaul than capacity: {} / {}".format(
-                used_cap_b, td["vehicle_capacity"]
-            )
-
+        MTVRPEnv.check_solution_validity(td, actions)
     def get_num_starts(self, td):
         return super().get_num_starts() + 1
     

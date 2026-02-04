@@ -156,13 +156,13 @@ class SymCVRPTWEnv(SymCVRPEnv):
 
         d_01 = first_length[..., [0]]
         assert (d_01 <=  penalty_time + 1e-5).all(), "Penalty time must be greater than first length"
-        back_length = gather_by_index(first_length, current_node)[:, None]
+        d_i1 = gather_by_index(first_length, current_node)[:, None]
 
         # Note: here we do not subtract one as we have to scatter so the first column allows scattering depot
         # Add one dimension since we write a single value
         visited = td["visited"].scatter(-1, current_node, 1)
         # SECTION: get done
-        done = (visited.sum(-1) == visited.size(-1))[..., None] & (used_capacity + first_capacity <= td["vehicle_capacity"] + 1e-5) & (current_time + back_length <= penalty_time + 1e-5)
+        done = (visited.sum(-1) == visited.size(-1))[..., None] & (used_capacity + first_capacity <= td["vehicle_capacity"] + 1e-5) & (current_time + d_i1 <= penalty_time + 1e-5)
         reward = torch.zeros_like(done)
 
         td.update(
@@ -242,78 +242,18 @@ class SymCVRPTWEnv(SymCVRPEnv):
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
-        batch_size, graph_size = td["demand"].size()
-        # distances to depot
-        distances = get_distance(
-            td["locs"][..., 0, :], td["locs"].transpose(0, 1)
-        ).transpose(0, 1)
-        # basic checks on time windows
-        assert torch.all(distances >= 0.0), "Distances must be non-negative."
-        assert torch.all(td["time_windows"] >= 0.0), "Time windows must be non-negative."
-        assert torch.all(
-            td["time_windows"][..., :, 0] + distances + td["durations"]
-            <= td["time_windows"][..., 0, 1][0]  # max_time is the same for all batches
-        ), "vehicle cannot perform service and get back to depot in time."
-        assert torch.all(
-            td["durations"] >= 0.0
-        ), "Service durations must be non-negative."
-        assert torch.all(
-            td["time_windows"][..., 0] < td["time_windows"][..., 1]
-        ), "there are unfeasible time windows"
+        actions = torch.cat([actions, actions[:, 0:1]], dim=-1)
+        lengths = torch.argmax((actions == actions.roll(shifts=-1, dims=-1)).int(), dim=-1, keepdim=True)
+        assert (lengths > 0).all(), "Invalid tour"
+        shifts = torch.minimum(torch.argmax((actions == 0).int(), dim=-1, keepdim=True), lengths - 1)
+        assert (gather_by_index(actions, shifts) == 0).all(), "Invalid tour, not visiting depot"
+        n = actions.shape[-1]
+        arange = torch.arange(n).to(actions.device).unsqueeze(0)
+        indices = (arange + shifts + 1) % lengths 
+        actions = gather_by_index(actions, indices)
+        actions[arange >= lengths] = 0
 
-        for k, action in tqdm(enumerate(actions)):
-            n = action.size(0)
-            while n > 1 and action[n - 1] == action[0]:
-                n -= 1
-            sorted_action = action[:n].sort()[0]
-            assert (sorted_action[-graph_size:] == torch.arange(
-                1, graph_size + 1, device=sorted_action.device
-            )).all(), "Invalid tour"
-            assert (sorted_action[:-graph_size] == 0).all(), "Invalid tour"
-            l = 0
-            first_capacity = 0
-            while l < n and action[l] != 0:
-                first_capacity += td["demand"][k, action[l] - 1]
-                l += 1
-                
-            capacity = 0.
-            t = 0.
-            for i in range(l, n):
-                if action[i] == 0:
-                    # Reset capacity
-                    capacity = 0.
-                    t = 0.
-                else:
-                    capacity += td["demand"][k, action[i] - 1]
-                    assert (
-                        capacity <= td["vehicle_capacity"][k, 0] + 1e-5
-                    ).all(), "Used more than capacity"
-                    # Check if the vehicle arrives at the location within the time window
-                    last_loc = td["locs"][k, action[i - 1]]
-                    current_loc = td["locs"][k, action[i]]
-                    dist = get_distance(last_loc, current_loc)
-                    t = max(t + dist, td["time_windows"][k, action[i], 0])
-                    assert (
-                        t <= td["time_windows"][k, action[i], 1]
-                    ).all(), "Arrived too late at location"
-                    duration = td["durations"][k, action[i]]
-                    t = t + duration
-                    
-            assert (
-                capacity + first_capacity <= td["vehicle_capacity"][k, 0] + 1e-5
-            ).all(), "Used more than capacity in first route"
-
-            for i in range(l):
-                assert action[i] != 0
-                last_loc = td["locs"][k, action[i - 1 if i > 0 else n - 1]]
-                current_loc = td["locs"][k, action[i]]
-                dist = get_distance(last_loc, current_loc)
-                t = max(t + dist, td["time_windows"][k, action[i], 0])
-                assert (
-                    t <= td["time_windows"][k, action[i], 1]
-                ).all(), "Arrived too late at location in first route"
-                duration = td["durations"][k, action[i]]
-                t = t + duration
+        CVRPTWEnv.check_solution_validity(td, actions)
 
     def _make_spec(self, generator: SymCVRPTWGenerator):
         if isinstance(generator, CVRPGenerator):

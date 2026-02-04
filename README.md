@@ -24,10 +24,10 @@ python generate_data.py
 
 # Run
 
-Take routefinder as an example, modify `configs/experiments/rf.yaml`, and then run
+Take routefinder as an example, modify `configs/experiments/mtvrp/rf.yaml`, and then run
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=rf > rf.txt
+CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=mtvrp/rf
 ```
 
 # View

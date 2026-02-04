@@ -173,35 +173,18 @@ class SymCVRPEnv(CVRPEnv):
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):
-        _, graph_size = td["demand"].size()
-        for k, action in enumerate(actions):
-            n = action.size(0)
-            while n > 1 and action[n - 1] == action[0]:
-                n -= 1
-            sorted_action = action[:n].sort()[0]
-            assert (sorted_action[-graph_size:] == torch.arange(
-                1, graph_size + 1, device=sorted_action.device
-            )).all(), "Invalid tour"
-            assert (sorted_action[:-graph_size] == 0).all(), "Invalid tour"
-            l = 0
-            first_capacity = 0
-            while l < n and action[l] != 0:
-                first_capacity += td["demand"][k, action[l] - 1]
-                l += 1
-                
-            capacity = 0
-            for i in range(l, n):
-                if action[i] == 0:
-                    # Reset capacity
-                    capacity = 0
-                else:
-                    capacity += td["demand"][k, action[i] - 1]
-                    assert (
-                        capacity <= td["vehicle_capacity"][k, 0] + 1e-5
-                    ).all(), "Used more than capacity"
-            assert (
-                capacity + first_capacity <= td["vehicle_capacity"][k, 0] + 1e-5
-            ).all(), "Used more than capacity in first route"
+        actions = torch.cat([actions, actions[:, 0:1]], dim=-1)
+        lengths = torch.argmax((actions == actions.roll(shifts=-1, dims=-1)).int(), dim=-1, keepdim=True)
+        assert (lengths > 0).all(), "Invalid tour"
+        shifts = torch.minimum(torch.argmax((actions == 0).int(), dim=-1, keepdim=True), lengths - 1)
+        assert (gather_by_index(actions, shifts) == 0).all(), "Invalid tour, not visiting depot"
+        n = actions.shape[-1]
+        arange = torch.arange(n).to(actions.device).unsqueeze(0)
+        indices = (arange + shifts + 1) % lengths 
+        actions = gather_by_index(actions, indices)
+        actions[arange >= lengths] = 0
+        
+        CVRPEnv.check_solution_validity(td, actions)
 
     @staticmethod
     def load_data(fpath, batch_size=[]):

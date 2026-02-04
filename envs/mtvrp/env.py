@@ -419,7 +419,7 @@ class MTVRPEnv(RL4COEnvBase):
                 td["open_route"].squeeze(-1) & (next_node == 0)
             )  # do not count back to depot for open route
             assert torch.all(
-                curr_length <= td["distance_limit"].squeeze(-1)
+                curr_length <= td["distance_limit"].squeeze(-1) + 1e-5
             ), "Route exceeds distance limit"
             curr_length[next_node == 0] = 0.0  # reset length for depot
 
@@ -427,7 +427,7 @@ class MTVRPEnv(RL4COEnvBase):
                 curr_time + dist, gather_by_index(td["time_windows"], next_node)[..., 0]
             )
             assert torch.all(
-                curr_time <= gather_by_index(td["time_windows"], next_node)[..., 1]
+                curr_time <= gather_by_index(td["time_windows"], next_node)[..., 1] + 1e-5
             ), "vehicle cannot start service before deadline"
             curr_time = curr_time + gather_by_index(td["service_time"], next_node)
             curr_node = next_node
@@ -450,32 +450,32 @@ class MTVRPEnv(RL4COEnvBase):
 
             # For backhaul_class 1 (B), we must ensure that if we are carrying backhaul, we are not picking up linehaul
             assert (
-                (td["backhaul_class"] == 2)
+                (td["backhaul_class"][:, 0] == 2)
                 | (used_cap_b == 0)
-                | ((td["backhaul_class"] == 1) & ~(demand_l[:, ii] > 0))
+                | ((td["backhaul_class"][:, 0] == 1) & ~(demand_l[:, ii] > 0))
             ).all(), "Cannot pick up linehaul while carrying backhaul due to precedence constraints"
 
             # For backhaul_class 2 (MB), we cannot pick up linehaul if the used capacity of backhaul is already at the vehicle capacity
             # also, cannot pick up other backhauls if we are full
             assert (
-                (td["backhaul_class"] == 1)
+                (td["backhaul_class"][:, 0] == 1)
                 | (used_cap_b == 0)
                 | (
-                    (td["backhaul_class"] == 2)
-                    & (used_cap_b + demand_l[:, ii] <= td["vehicle_capacity"])
+                    (td["backhaul_class"][:, 0] == 2)
+                    & (used_cap_b + demand_l[:, ii] <= td["vehicle_capacity"][:, 0])
                 )
             ).all(), "Cannot deliver linehaul, not enough load"
 
             # Assertions: total used linehaul and backhaul capacity should not exceed vehicle capacity
             assert (
-                used_cap_l <= td["vehicle_capacity"]
+                used_cap_l <= td["vehicle_capacity"][:, 0] + 1e-5
             ).all(), "Used more linehaul than capacity: {} / {}".format(
-                used_cap_l, td["vehicle_capacity"]
+                used_cap_l, td["vehicle_capacity"][:, 0]
             )
             assert (
-                used_cap_b <= td["vehicle_capacity"]
+                used_cap_b <= td["vehicle_capacity"][:, 0] + 1e-5
             ).all(), "Used more backhaul than capacity: {} / {}".format(
-                used_cap_b, td["vehicle_capacity"]
+                used_cap_b, td["vehicle_capacity"][:, 0]
             )
 
     def get_num_starts(self, td):
