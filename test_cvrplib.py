@@ -124,9 +124,9 @@ for instance in instances:
             "dynamic_embedding": StaticEmbedding(),
     })
 
-    path_forced = "./pretrained/cvrp100/pomo-forced/499_-16.3359_-15.9275.ckpt"
+    path_forced = "./pretrained/cvrp100/pomo/499_-16.3359_-15.9275.ckpt"
     path_free = "./pretrained/cvrp100/pomo-free/499_-16.2794_-16.0498.ckpt"
-    path_bd = "./pretrained/symcvrp100/pomo-forced/499_-16.3031_-15.9040.ckpt"
+    path_bd = "./pretrained/cvrp100/pomo-bd/499_-16.3031_-15.9040.ckpt"
     model_forced.load_state_dict(torch.load(path_forced, weights_only=False)['state_dict'])
     model_free.load_state_dict(torch.load(path_free, weights_only=False)['state_dict'])
     model_bd.load_state_dict(torch.load(path_bd, weights_only=False)['state_dict'])

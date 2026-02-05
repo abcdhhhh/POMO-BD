@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - mtvrp/rf.yaml
+
+env_name: symmtvrp
+ckpt_path: null
+model:
+  num_starts: null
+
+logger:
+  name: mtvrp${num_loc}/bd/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.po_alpha}

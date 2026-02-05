@@ -308,10 +308,10 @@ class MTVRPEnv(RL4COEnvBase):
 
         # Capacity constraints linehaul (C) and backhaul (B)
         exceeds_cap_linehaul = (
-            td["demand_linehaul"] + td["used_capacity_linehaul"] > td["vehicle_capacity"]
+            td["demand_linehaul"] + td["used_capacity_linehaul"] > td["vehicle_capacity"] + 1e-5
         )
         exceeds_cap_backhaul = (
-            td["demand_backhaul"] + td["used_capacity_backhaul"] > td["vehicle_capacity"]
+            td["demand_backhaul"] + td["used_capacity_backhaul"] > td["vehicle_capacity"] + 1e-5
         )
 
         # Backhaul class 1 (classical backhaul) (B)
@@ -339,7 +339,7 @@ class MTVRPEnv(RL4COEnvBase):
         # to serve linehaul customers we additionally need to check the remaining capacity in the vehicle
         # capacity is vehicle_capacity-used_capacity_backhauls, as all used_capacity_linehaul at this point have already been *delivered*
         cannot_serve_linehaul = (
-            td["demand_linehaul"] > td["vehicle_capacity"] - td["used_capacity_backhaul"]
+            td["demand_linehaul"] > td["vehicle_capacity"] - td["used_capacity_backhaul"] + 1e-5
         )
         meets_demand_constraint_backhaul_2 = (
             ~exceeds_cap_linehaul & ~exceeds_cap_backhaul & ~cannot_serve_linehaul
@@ -419,7 +419,7 @@ class MTVRPEnv(RL4COEnvBase):
                 td["open_route"].squeeze(-1) & (next_node == 0)
             )  # do not count back to depot for open route
             assert torch.all(
-                curr_length <= td["distance_limit"].squeeze(-1) + 1e-5
+                curr_length <= td["distance_limit"].squeeze(-1)
             ), "Route exceeds distance limit"
             curr_length[next_node == 0] = 0.0  # reset length for depot
 
@@ -427,7 +427,7 @@ class MTVRPEnv(RL4COEnvBase):
                 curr_time + dist, gather_by_index(td["time_windows"], next_node)[..., 0]
             )
             assert torch.all(
-                curr_time <= gather_by_index(td["time_windows"], next_node)[..., 1] + 1e-5
+                curr_time <= gather_by_index(td["time_windows"], next_node)[..., 1]
             ), "vehicle cannot start service before deadline"
             curr_time = curr_time + gather_by_index(td["service_time"], next_node)
             curr_node = next_node

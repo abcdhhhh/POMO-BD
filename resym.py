@@ -62,6 +62,16 @@ def run(cfg: DictConfig):
                 "context_embedding": KPContext(embed_dim=cfg.embed_dim),
                 "dynamic_embedding": StaticEmbedding(),
             })
+        elif cfg.env_name == "symmtvrp":
+            from envs.symmtvrp.env import SymMTVRPEnv
+            del env_params.env_name
+            env = SymMTVRPEnv(**env_params)
+            from models.nn.env_embeddings.symmtvrp import SymMTVRPInitEmbeddingRouteFinder, SymMTVRPContextEmbeddingRouteFinder
+            model_params_dict["policy_kwargs"].update({
+                "init_embedding": SymMTVRPInitEmbeddingRouteFinder(cfg.embed_dim),
+                "context_embedding": SymMTVRPContextEmbeddingRouteFinder(embed_dim=cfg.embed_dim),
+                "dynamic_embedding": StaticEmbedding(),
+            })
         elif cfg.env_name == "symop":
             from envs.symop.env import SymOPEnv
             del env_params.env_name

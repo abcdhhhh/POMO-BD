@@ -1,9 +1,9 @@
 # @package _global_
 
 defaults:
-  - rf.yaml
+  - mtvrp/rf.yaml
 
-ckpt_path: pretrained/mtvrp50/rf-te-vam/299_-10.8619_-10.5101.ckpt
+ckpt_path: pretrained/mtvrp50/rf-te-vam/299_-10.8430_-10.4984.ckpt
 model:
   policy_kwargs:
     decoder: vam

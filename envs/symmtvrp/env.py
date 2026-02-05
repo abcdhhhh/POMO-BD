@@ -104,19 +104,21 @@ class SymMTVRPEnv(MTVRPEnv):
         visited = td["visited"].scatter(-1, curr_node[..., None], True)
 
         all_visited = (visited.sum(-1) == visited.size(-1))[:, None]
-        can_reach_customer = (curr_time + d_i1 / td["speed"] <= penalty_time + 1e-5)
-        exceeds_cap_linehaul = (used_capacity_linehaul + first_capacity_linehaul > td["vehicle_capacity"] + 1e-5)
-        exceeds_cap_backhaul = (used_capacity_backhaul + first_capacity_backhaul > td["vehicle_capacity"] + 1e-5)
+        can_reach_customer = (curr_time + d_i1 / td["speed"] <= penalty_time)
+        exceeds_cap_linehaul = (used_capacity_linehaul + first_capacity_linehaul > td["vehicle_capacity"])
+        exceeds_cap_backhaul = (used_capacity_backhaul + first_capacity_backhaul > td["vehicle_capacity"])
         wrong_order = ((selected_demand_backhaul > 0) & (first_capacity_linehaul > 0))
         meets_demand_constraint = (
             ~exceeds_cap_linehaul & ~exceeds_cap_backhaul & ~wrong_order
         )
-        exceeds_dist_limit = (curr_route_length + d_i1 + first_route_length > td["distance_limit"] + 1e-5)
-        done = (
-            all_visited
-            & can_reach_customer
-            & meets_demand_constraint
-            & ~exceeds_dist_limit
+        exceeds_dist_limit = (curr_route_length + d_i1 + first_route_length > td["distance_limit"])
+        done = td["done"] | (
+            all_visited & (
+                (curr_node[:, None] == 0)
+                | (can_reach_customer
+                & meets_demand_constraint
+                & ~exceeds_dist_limit)
+                )
         )
         reward = torch.zeros_like(
             done
@@ -340,10 +342,7 @@ class SymMTVRPEnv(MTVRPEnv):
         can_visit[allow, :] = 0
         can_visit[allow] = can_visit[allow].scatter(-1, td["first_node"][allow, None], 1)
         
-        try:
-            assert (can_visit.sum(-1) > 0).all(), "No valid actions"
-        except:
-            import pdb; pdb.set_trace()
+        assert (can_visit.sum(-1) > 0).all(), "No valid actions"
         return can_visit
 
     @staticmethod
@@ -361,7 +360,7 @@ class SymMTVRPEnv(MTVRPEnv):
 
         MTVRPEnv.check_solution_validity(td, actions)
     def get_num_starts(self, td):
-        return super().get_num_starts() + 1
+        return super().get_num_starts(td) + 1
     
     def select_start_nodes(self, td, num_starts):
         num_loc_with_depot = td["locs"].shape[-2]
