@@ -4,11 +4,14 @@ import torch.nn as nn
 from rl4co.envs.common.utils import batch_to_scalar
 from rl4co.utils.ops import gather_by_index
 from rl4co.models.nn.env_embeddings.context import EnvContext, VRPContext
-from .mtvrp import MTVRPInitEmbeddingRouteFinder
+from .mtvrp import MTVRPInitEmbeddingRouteFinder, MTVRPContextEmbeddingRouteFinder
 
 
 class SymMTVRPInitEmbeddingRouteFinder(MTVRPInitEmbeddingRouteFinder):
     pass
+
+# class SymMTVRPContextEmbeddingRouteFinder(MTVRPContextEmbeddingRouteFinder):
+#     pass
     
 class SymMTVRPContextEmbeddingRouteFinder(EnvContext):
     """Context embedding SymMTVRP.

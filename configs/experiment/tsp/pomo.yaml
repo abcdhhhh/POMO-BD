@@ -1,7 +1,7 @@
 # @package _global_
 
 # train/val/test
-mode: test
+mode: train
 env_name: tsp
 num_loc: 100
 embed_dim: 128
@@ -112,11 +112,11 @@ ckpt:
 
 trainer:
   max_epochs: 300
-  precision: 32-true # set '32-true' if use aft encoder
+  precision: 16-mixed # set '32-true' if use aft encoder
   accumulate_grad_batches: 1
   gradient_clip_val: 1.0
   # set 'wandb' if use wandb, 'tensorboard' if use tensorboard, 'null' otherwise
-  logger: null
+  logger: tensorboard
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 

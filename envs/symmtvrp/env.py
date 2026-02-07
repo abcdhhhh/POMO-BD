@@ -105,8 +105,8 @@ class SymMTVRPEnv(MTVRPEnv):
 
         all_visited = (visited.sum(-1) == visited.size(-1))[:, None]
         can_reach_customer = (curr_time + d_i1 / td["speed"] <= penalty_time)
-        exceeds_cap_linehaul = (used_capacity_linehaul + first_capacity_linehaul > td["vehicle_capacity"])
-        exceeds_cap_backhaul = (used_capacity_backhaul + first_capacity_backhaul > td["vehicle_capacity"])
+        exceeds_cap_linehaul = (used_capacity_linehaul + first_capacity_linehaul > td["vehicle_capacity"] + 1e-5)
+        exceeds_cap_backhaul = (used_capacity_backhaul + first_capacity_backhaul > td["vehicle_capacity"] + 1e-5)
         wrong_order = ((selected_demand_backhaul > 0) & (first_capacity_linehaul > 0))
         meets_demand_constraint = (
             ~exceeds_cap_linehaul & ~exceeds_cap_backhaul & ~wrong_order
@@ -284,10 +284,10 @@ class SymMTVRPEnv(MTVRPEnv):
 
         # Capacity constraints linehaul (C) and backhaul (B)
         exceeds_cap_linehaul = (
-            td["demand_linehaul"] + td["used_capacity_linehaul"] > td["vehicle_capacity"]
+            td["demand_linehaul"] + td["used_capacity_linehaul"] > td["vehicle_capacity"] + 1e-5
         )
         exceeds_cap_backhaul = (
-            td["demand_backhaul"] + td["used_capacity_backhaul"] > td["vehicle_capacity"]
+            td["demand_backhaul"] + td["used_capacity_backhaul"] > td["vehicle_capacity"] + 1e-5
         )
 
         # Backhaul class 1 (classical backhaul) (B)
@@ -315,7 +315,7 @@ class SymMTVRPEnv(MTVRPEnv):
         # to serve linehaul customers we additionally need to check the remaining capacity in the vehicle
         # capacity is vehicle_capacity-used_capacity_backhauls, as all used_capacity_linehaul at this point have already been *delivered*
         cannot_serve_linehaul = (
-            td["demand_linehaul"] > td["vehicle_capacity"] - td["used_capacity_backhaul"]
+            td["demand_linehaul"] > td["vehicle_capacity"] - td["used_capacity_backhaul"] + 1e-5
         )
         meets_demand_constraint_backhaul_2 = (
             ~exceeds_cap_linehaul & ~exceeds_cap_backhaul & ~cannot_serve_linehaul
@@ -344,6 +344,18 @@ class SymMTVRPEnv(MTVRPEnv):
         
         assert (can_visit.sum(-1) > 0).all(), "No valid actions"
         return can_visit
+    
+    def _get_reward(self, td: TensorDict, actions: TensorDict) -> TensorDict:
+        # Append depot to actions and get sequence of locations
+        go_from = actions
+        go_to = torch.roll(go_from, -1, dims=1)  # [b, seq_len]
+        loc_from = gather_by_index(td["locs"], go_from)
+        loc_to = gather_by_index(td["locs"], go_to)
+
+        # Get tour length. If route is open and goes to depot, don't count the distance
+        distances = get_distance(loc_from, loc_to)  # [b, seq_len]
+        tour_length = (distances * ~((go_to == 0) & td["open_route"])).sum(-1)  # [b]
+        return -tour_length  # reward is negative cost
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor):

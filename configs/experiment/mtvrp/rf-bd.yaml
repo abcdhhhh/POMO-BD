@@ -1,10 +1,10 @@
 # @package _global_
 
 defaults:
-  - mtvrp/rf.yaml
+  - /experiment/mtvrp/rf.yaml
 
 env_name: symmtvrp
-ckpt_path: null
+ckpt_path: pretrained/mtvrp50/rf-bd/299_-10.8622_-10.4953.ckpt
 model:
   num_starts: null
 
