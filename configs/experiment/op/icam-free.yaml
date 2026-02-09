@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - op/icam.yaml
+  - /experiment/op/icam.yaml
 
 ckpt_path: pretrained/op100/icam-free/299_32.7600_33.0493.ckpt
 model:

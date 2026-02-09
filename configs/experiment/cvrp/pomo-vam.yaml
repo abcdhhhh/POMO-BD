@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - cvrp/pomo.yaml
+  - /experiment/cvrp/pomo.yaml
 
 ckpt_path: pretrained/cvrp100/am-vam-None-100[]-multistart_sampling-0-True-0.0/199_-16.3322_-15.9430.ckpt
 model:

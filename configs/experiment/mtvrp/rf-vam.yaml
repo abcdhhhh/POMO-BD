@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - mtvrp/rf.yaml
+  - /experiment/mtvrp/rf.yaml
 
 ckpt_path: null # pretrained/mtvrp50/rf-vam/299_-10.8430_-10.4984.ckpt
 model:

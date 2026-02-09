@@ -40,24 +40,29 @@ class AFTAttention(nn.Module):
         q, k, v = rearrange(
             self.Wqkv(x), "b s (three d) -> three b s d", three=3,
         ).unbind(dim=0)
-        q = F.sigmoid(q)
-        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
-        w = -self.alpha * math.log2(x.size(-2)) * dist 
-        if self.idt:
-            w = w - self.beta * torch.eye(x.size(-2), device=x.device)
-        if attn_mask is not None:
-            if attn_mask.dtype == torch.bool:
-                w.masked_fill_(~attn_mask, float("-inf"))
-            else:
-                w += attn_mask
-        w = torch.exp(w)
-        wkv = torch.bmm(w, k*v)
-        wk = torch.bmm(w, k)
-        wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        out = q * wkv / wk
+        with torch.amp.autocast("cuda", enabled=False):
+            q = q.float()
+            k = k.float()
+            v = v.float()
+            dist = dist.float()
+
+            q = torch.sigmoid(q)
+            k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
+            w = -self.alpha.float() * math.log2(x.size(-2)) * dist 
+            if self.idt:
+                w = w - self.beta.float() * torch.eye(x.size(-2), device=x.device)
+            if attn_mask is not None:
+                if attn_mask.dtype == torch.bool:
+                    w.masked_fill_(~attn_mask, float("-inf"))
+                else:
+                    w += attn_mask
+            w = torch.exp(w)
+            wkv = torch.bmm(w, k*v)
+            wk = torch.bmm(w, k)
+            wk = wk + 1e-10
+            out = q * wkv / wk
+            return out
         
-        return out
-    
 class AFTCrossAttention(nn.Module):
     def __init__(
         self,
@@ -88,26 +93,32 @@ class AFTCrossAttention(nn.Module):
         k, v = rearrange(
             self.Wkv(kv_input), "b n (two d) -> two b n d", two=2,
         ).unbind(dim=0)
-        q = F.sigmoid(q)
-        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
-        w = -self.alpha * math.log2(k.size(-2)) * dmat
-        if self.idt:
-            assert q.size(-2) == k.size(-2), "q and k should have same length"
-            w = w - self.beta * torch.eye(k.size(-2), device=q.device)
-        if cross_attn_mask is not None:
-            if cross_attn_mask.ndim == 2:
-                cross_attn_mask = cross_attn_mask.unsqueeze(1)
-            if cross_attn_mask.dtype == torch.bool:
-                w.masked_fill_(~cross_attn_mask, float("-inf"))
-            else:
-                w += cross_attn_mask
-        w = torch.exp(w)
-        wkv = torch.bmm(w, k*v)
-        wk = torch.bmm(w, k)
-        wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        out = q * wkv / wk
-        
-        return out
+        with torch.amp.autocast("cuda", enabled=False):
+            q = q.float()
+            k = k.float()
+            v = v.float()
+            dmat = dmat.float()
+
+            q = torch.sigmoid(q)
+            k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
+            w = -self.alpha.float() * math.log2(k.size(-2)) * dmat
+            if self.idt:
+                assert q.size(-2) == k.size(-2), "q and k should have same length"
+                w = w - self.beta.float() * torch.eye(k.size(-2), device=q.device)
+            if cross_attn_mask is not None:
+                if cross_attn_mask.ndim == 2:
+                    cross_attn_mask = cross_attn_mask.unsqueeze(1)
+                if cross_attn_mask.dtype == torch.bool:
+                    w.masked_fill_(~cross_attn_mask, float("-inf"))
+                else:
+                    w += cross_attn_mask
+            w = torch.exp(w)
+            wkv = torch.bmm(w, k*v)
+            wk = torch.bmm(w, k)
+            wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
+            out = q * wkv / wk
+            
+            return out
 
 class AFTPointerAttention(PointerAttention):
     def __init__(
@@ -148,20 +159,26 @@ class AFTPointerAttention(PointerAttention):
         return logits
     
     def _inner_aft(self, q, k, v, w, attn_mask):
-        q = F.sigmoid(q)
-        k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
-        # Apply the provided attention mask
-        if attn_mask is not None:
-            if attn_mask.dtype != torch.bool:
-                attn_mask = (attn_mask != -torch.inf)
-            w.masked_fill_(~attn_mask, 0.)
-        if w.ndim == 2:
-            w = w.unsqueeze(1)
-        wkv = torch.bmm(w, k*v)
-        wk = torch.bmm(w, k)
-        wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
-        glimpse = q * wkv / wk
-        return glimpse
+        with torch.amp.autocast("cuda", enabled=False):
+            q = q.float()
+            k = k.float()
+            v = v.float()
+            w = w.float()
+
+            q = torch.sigmoid(q)
+            k = torch.exp(k - torch.max(k, dim=-2, keepdim=True)[0])
+            # Apply the provided attention mask
+            if attn_mask is not None:
+                if attn_mask.dtype != torch.bool:
+                    attn_mask = (attn_mask != -torch.inf)
+                w.masked_fill_(~attn_mask, 0.)
+            if w.ndim == 2:
+                w = w.unsqueeze(1)
+            wkv = torch.bmm(w, k*v)
+            wk = torch.bmm(w, k)
+            wk = wk + (1e-10 if wk.dtype != torch.float16 else 3e-8)
+            glimpse = q * wkv / wk
+            return glimpse
 
 class PolyNetAFTAttention(AFTPointerAttention):
     def __init__(

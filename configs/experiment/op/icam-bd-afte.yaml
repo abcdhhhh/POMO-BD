@@ -1,0 +1,11 @@
+# @package _global_
+
+defaults:
+  - /experiment/op/icam-bd.yaml
+
+ckpt_path: null 
+model:
+  policy_kwargs:
+    encoder: afte
+    normalization: rms
+    activation: swiglu

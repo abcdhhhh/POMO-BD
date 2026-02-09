@@ -1,7 +1,7 @@
 # @package _global_
 
 defaults:
-  - op/icam.yaml
+  - /experiment/op/icam.yaml
 
 env_name: symop
 ckpt_path: pretrained/op100/icam-bd/299_32.1701_33.1703.ckpt

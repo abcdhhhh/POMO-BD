@@ -54,7 +54,17 @@ class ReSymPolicy(AutoregressivePolicy):
         **kwargs
     ):
         encoder_type = "mataft" if encoder in ["mataft", "matnet"] else "aft"
-        if encoder == "aft":
+        if encoder in ["aft", "afte"]:
+            if encoder == "afte":
+                from models.zoo.icam.attnnet import AFTENetwork
+                encoder_network = AFTENetwork(
+                    num_layers=num_encoder_layers,
+                    embed_dim=embed_dim,
+                    normalization=normalization,
+                    activation=activation,
+                    idt=idt,
+                    feedforward_hidden=feedforward_hidden,
+                )
             encoder = AFTEncoder(
                 embed_dim=embed_dim,
                 init_embedding=init_embedding,

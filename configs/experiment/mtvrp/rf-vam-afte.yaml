@@ -1,0 +1,9 @@
+# @package _global_
+
+defaults:
+  - /experiment/mtvrp/rf-vam.yaml
+
+ckpt_path: null 
+model:
+  policy_kwargs:
+    encoder: afte
