@@ -42,6 +42,15 @@ class VAMDecoder(AttentionModelDecoder):
         moe_kwargs: dict = None,
     ):     
         self.encoder_type = encoder_type
+        if pointer == "reld":
+            from ..icam.attention import ReLDPointerAttention
+            pointer = ReLDPointerAttention(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                mask_inner=mask_inner,
+                out_bias=out_bias_pointer_attn,
+                check_nan=check_nan,
+            )
 
         super().__init__(
             embed_dim=embed_dim,

@@ -136,9 +136,12 @@ class ReSym(REINFORCE):
             n_start = 0
 
         if "multistart" in decode_type:
+            num_loc_old = self.env.generator.num_loc
+            self.env.generator.num_loc = n_start
             out = self.policy(
                 td, env=self.env, phase=phase, num_starts=n_start, multistart=True, select_best=False,
             )
+            self.env.generator.num_loc = num_loc_old
         else:
             out = self.policy(
                 td, env=self.env, phase=phase, num_samples=n_start, multisample=True, select_best=False,

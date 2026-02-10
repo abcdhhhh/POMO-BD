@@ -5,7 +5,7 @@ defaults:
 
 ckpt_path: pretrained/op100/icam-free/299_32.7600_33.0493.ckpt
 model:
-  num_starts: 101
+  num_starts: null # 101
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: sampling

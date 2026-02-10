@@ -9,7 +9,7 @@ from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
 
-def sinkhorn_normalization(log_alpha: Tensor, n_iters: int = 20) -> Tensor:
+def sinkhorn_normalization(log_alpha: Tensor, n_iters: int = 10) -> Tensor:
     """Applies Sinkhorn normalization to a log_alpha tensor.
 
     Args:

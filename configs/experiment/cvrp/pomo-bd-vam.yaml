@@ -1,0 +1,10 @@
+# @package _global_
+
+defaults:
+  - /experiment/cvrp/pomo-bd.yaml
+
+ckpt_path: pretrained/cvrp100/bd/am-vam-None-101[]-multistart_sampling-0-True-0.0/199_-16.3207_-15.9262.ckpt
+model:
+  policy_kwargs:
+    decoder: vam
+    logit_bias: True

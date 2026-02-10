@@ -1,9 +1,9 @@
 # @package _global_
 
 # train/val/test
-mode: train
+mode: test
 env_name: tsp
-num_loc: 100
+num_loc: 50
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
@@ -19,12 +19,12 @@ env:
     # max_penalty: 9
     # for MTVRP
     # variant_preset: all
-  load_solutions: False
+  # load_solutions: False
   check_solution: False # optimization
   data_dir: ./data/
 
-  val_file: tsp/val/${num_loc}.npz
-  test_file: tsp/test/${num_loc}.npz
+  val_file: [tsp/val/100.npz, tsp/val/200.npz, tsp/val/500.npz]
+  test_file: [tsp/test/100.npz, tsp/test/200.npz, tsp/test/500.npz]
 
 model:
   batch_size: 50
@@ -36,10 +36,10 @@ model:
 
   # keep batch_size * num_augment_train a constant for fair comparison
   num_augment_train_list: []
-  num_augment_list: []
+  num_augment_list: [8]
   # choose from 'dihedral8', 'symmetric', 'pdp', 'atsp'
   augment_fn_train_list: []
-  augment_fn_list: []
+  augment_fn_list: ['dihedral8']
   # set ['locs'] for euclidean routing, ['cost_matrix'] for atsp
   feats: ['locs']
 
@@ -102,8 +102,8 @@ logger:
 
 
 ckpt:
-  monitor: val/max_reward
-  filename: "{epoch:02d}_{val/reward:.4f}_{val/max_reward:.4f}"
+  monitor: val/max_reward/0
+  filename: "{epoch:02d}_{val/reward/0:.4f}_{val/max_reward/0:.4f}"
   auto_insert_metric_name: False
   save_top_k: -1
   every_n_epochs: 50
@@ -116,7 +116,7 @@ trainer:
   accumulate_grad_batches: 1
   gradient_clip_val: 1.0
   # set 'wandb' if use wandb, 'tensorboard' if use tensorboard, 'null' otherwise
-  logger: tensorboard
+  logger: null
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 

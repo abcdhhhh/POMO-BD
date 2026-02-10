@@ -3,7 +3,7 @@
 defaults:
   - /experiment/op/icam-free.yaml
 
-ckpt_path: null 
+ckpt_path: outputs/checkpoints/op100/afte-cab-aft-101[]-sampling-True-0.0-128-0.0001/299_32.7897_33.0638.ckpt
 model:
   policy_kwargs:
     encoder: afte

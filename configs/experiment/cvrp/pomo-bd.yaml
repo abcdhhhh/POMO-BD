@@ -4,7 +4,7 @@ defaults:
   - /experiment/cvrp/pomo.yaml
 
 env_name: symcvrp
-ckpt_path: null
+ckpt_path: pretrained/cvrp100/bd/am-am-None-101[]-multistart_sampling-0-False-0.0/199_-16.3634_-15.9533.ckpt
 model:
   num_starts: null
 

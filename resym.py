@@ -35,6 +35,7 @@ def run(cfg: DictConfig):
             env = get_env(generator=generator, **env_params)
         elif cfg.env_name == "mtvrp":
             from envs.mtvrp.env import MTVRPEnv
+            del env_params.env_name
             env = MTVRPEnv(**env_params)
             from models.nn.env_embeddings.mtvrp import MTVRPInitEmbeddingRouteFinder, MTVRPContextEmbeddingRouteFinder
             model_params_dict["policy_kwargs"].update({

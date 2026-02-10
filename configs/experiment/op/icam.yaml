@@ -1,7 +1,7 @@
 # @package _global_
 
 # train/val/test
-mode: train
+mode: test
 env_name: op
 num_loc: 100
 embed_dim: 128
@@ -24,7 +24,7 @@ env:
   data_dir: ./data/
 
   val_file: op/val/${num_loc}_dist.npz
-  test_file: op/test/${num_loc}_dist.npz
+  test_file: [op/test/100_dist.npz, op/test/500_dist.npz]
 
 model:
   batch_size: 128
@@ -36,10 +36,10 @@ model:
 
   # keep batch_size * num_augment_train a constant for fair comparison
   num_augment_train_list: []
-  num_augment_list: [8]
+  num_augment_list: []
   # choose from 'dihedral8', 'symmetric', 'pdp', 'atsp'
   augment_fn_train_list: []
-  augment_fn_list: ['dihedral8']
+  augment_fn_list: []
   # set ['locs'] for euclidean routing, ['cost_matrix'] for atsp
   feats: ['locs']
 
@@ -116,7 +116,7 @@ trainer:
   accumulate_grad_batches: 1
   gradient_clip_val: 1.0
   # set 'wandb' if use wandb, 'tensorboard' if use tensorboard, 'null' otherwise
-  logger: tensorboard
+  logger: null
   default_root_dir: ${save_dir}
   check_val_every_n_epoch: 1
 

@@ -20,6 +20,8 @@ class Normalization(nn.Module):
             
             if normalization == "rms":
                 self.normalizer = normalizer_class(embed_dim)
+            elif normalization is None:
+                self.normalizer = None
             else:
                 self.normalizer = normalizer_class(embed_dim, affine=True)
         else:
