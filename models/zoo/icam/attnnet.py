@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from torch import Tensor
 
-from models.zoo.icam.attention import AFTAttention, AFTCrossAttention
+from .attention import AFTAttention, AFTCrossAttention
 from ...nn.ops import TransformerFFN, Normalization
 from rl4co.utils.pylogger import get_pylogger
 

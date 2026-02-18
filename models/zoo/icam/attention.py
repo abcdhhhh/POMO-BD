@@ -13,7 +13,6 @@ class AFTAttention(nn.Module):
     following ICAM (https://arxiv.org/abs/2405.01906) and AFT-full (https://arxiv.org/abs/2105.14103)
     inputs include a distance matrix
     memory O(bn^2+bnhd)
-    NOTE: may get NaN when training with 16-mixed
     """
     def __init__(
         self,

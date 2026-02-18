@@ -83,7 +83,7 @@ class VAMDecoder(AttentionModelDecoder):
     def _precompute_cache(
         self, td, embeddings: Tensor, num_starts: int = 0
     ) -> BiasCache:
-        if self.encoder_type == "aft":
+        if self.encoder_type in ["aft", "vam"]:
             return self._precompute_cache_cab(td, embeddings, num_starts)
         elif self.encoder_type == "mataft":
             return self._precompute_cache_matcab(td, embeddings, num_starts)
@@ -97,11 +97,12 @@ class VAMDecoder(AttentionModelDecoder):
             embeddings: Precomputed embeddings for the nodes
             num_starts: Number of starts for the multi-start decoding
         """
-        if self.logit_bias:
-            top_emb = self.W(embeddings.mean(1, keepdim=True))
-        else:
-            top_emb = self.b.expand_as(embeddings[:, :1, :])
-        embeddings = torch.cat([embeddings, top_emb], dim=1)
+        if self.encoder_type != "vam":
+            if self.logit_bias:
+                top_emb = self.W(embeddings.mean(1, keepdim=True))
+            else:
+                top_emb = self.b.expand_as(embeddings[:, :1, :])
+            embeddings = torch.cat([embeddings, top_emb], dim=1)
 
         # The projection of the node embeddings for the attention is calculated once up front
         (

@@ -163,6 +163,8 @@ class ReSym(REINFORCE):
                 if n_start > 1:
                     max_norm_reward, _ = normalized_reward.max(dim=-1)
                     out.update({"max_norm_reward": max_norm_reward})
+            else:
+                normalized_reward = reward # / (reward.abs().mean(dim=1, keepdim=True) + 1e-10)
             if n_start > 1:
                 max_reward, max_idxs = reward.max(dim=-1)
                 out.update({"max_reward": max_reward})
@@ -171,7 +173,7 @@ class ReSym(REINFORCE):
                 max_aug_reward, max_idxs = reward_.max(dim=1)
                 out.update({"max_aug_reward": max_aug_reward})
 
-            self.calculate_loss(td, batch, out, normalized_reward if "mtvrp" in self.env.name else reward, log_likelihood)
+            self.calculate_loss(td, batch, out, normalized_reward, log_likelihood)
         # Get multi-start (=POMO) rewards and best actions only during validation and test
         else:
             if n_start > 1:

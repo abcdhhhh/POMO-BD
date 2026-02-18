@@ -53,7 +53,7 @@ def get_reward_unnormalized(td, actions):
     # if locs dtype is int, the round, else don't round
     if locs.dtype in [torch.int8, torch.int16, torch.int32, torch.int64]:
         d = d.round()
-    return -d.sum(dim=-1).round().int().item()
+    return -d.sum(dim=-1).item()
 
 # Utils function: we will normalize the coordinates of the VRP instances
 def normalize_coord(coord:torch.Tensor) -> torch.Tensor:
@@ -136,51 +136,55 @@ for line in lines:
                 optimal_dict[name] = value
                 
 
-for problem in problems:
-    instance = problem['name']
-    # Inference
-    td = tsplib_to_td(problem)
-    td_orginal = tsplib_to_td(problem, normalize=False)
+# for problem in problems:
+    # instance = problem['name']
+    # # Inference
+    # td = tsplib_to_td(problem)
+    # td_orginal = tsplib_to_td(problem, normalize=False)
 
-    num_loc = td['locs'].shape[1]
+    # num_loc = td['locs'].shape[1]
 
-    if num_loc <= 0 or num_loc > 250:
-        continue
+    # if num_loc <= 0 or num_loc > 250:
+    #     continue
+if True:
+    num_loc = 200
 
     env = TSPEnv(generator_params={"num_loc": num_loc})
+    td = env.generator._generate(batch_size=[1])
+    td_orginal = td
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    try:
-        bks_sol = (torch.tensor(problem['solution'], device=device, dtype=torch.int64) - 1)[None]
-        unnormalized_td = env.reset(td_orginal.clone()).to(device)
-        optimal_cost = -get_reward_unnormalized(unnormalized_td, bks_sol)
-        assert optimal_cost == optimal_dict[instance], f"Optimal cost mismatch for {instance}: {optimal_cost} vs {optimal_dict[instance]}"
-    except:
-        optimal_cost = optimal_dict.get(instance, None)
+    # try:
+    #     bks_sol = (torch.tensor(problem['solution'], device=device, dtype=torch.int64) - 1)[None]
+    #     unnormalized_td = env.reset(td_orginal.clone()).to(device)
+    #     optimal_cost = -get_reward_unnormalized(unnormalized_td, bks_sol)
+    #     assert optimal_cost == optimal_dict[instance], f"Optimal cost mismatch for {instance}: {optimal_cost} vs {optimal_dict[instance]}"
+    # except:
+    #     optimal_cost = optimal_dict.get(instance, None)
     
     td_am = env.reset(td=td.clone()).to(device)
     td_vam = env.reset(td=td.clone()).to(device)
     td_vam_false = env.reset(td=td.clone()).to(device)
 
-    augment = CompositeAugmentation(
-        num_augment_list=[8],
-        augment_fn_list=['dihedral8'],
-    )
+    # augment = CompositeAugmentation(
+    #     num_augment_list=[8],
+    #     augment_fn_list=['dihedral8'],
+    # )
 
-    td_am = augment(td_am)
-    td_vam = augment(td_vam)
-    td_vam_false = augment(td_vam_false)
+    # td_am = augment(td_am)
+    # td_vam = augment(td_vam)
+    # td_vam_false = augment(td_vam_false)
 
     model_am = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "am", "pointer": None, "tanh_clipping": 50.0, })
     model_vam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": True, })
     model_vam_false = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": False, })
     
-    path_am = "outputs/checkpoints/tsp100/am-am-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
-    path_vam = "outputs/checkpoints/tsp100/am-vam-None-100[]-multistart_sampling-0-True-0.0-v1/last.ckpt"
-    path_vam_false = "outputs/checkpoints/tsp100/am-vam-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
+    path_am = "pretrained/tsp100/am-am-None-100[]-multistart_sampling-0-False-0.0/199_-7.9830_-7.8336.ckpt"
+    path_vam = "pretrained/tsp100/am-vam-None-100[]-multistart_sampling-0-True-0.0/199_-7.9510_-7.8191.ckpt"
+    # path_vam_false = "outputs/checkpoints/tsp100/am-vam-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
     model_am.load_state_dict(torch.load(path_am, weights_only=False)['state_dict'])
     model_vam.load_state_dict(torch.load(path_vam, weights_only=False)['state_dict'])
-    model_vam_false.load_state_dict(torch.load(path_vam_false, weights_only=False)['state_dict'])
+    # model_vam_false.load_state_dict(torch.load(path_vam_false, weights_only=False)['state_dict'])
 
     policy_am = model_am.policy.to(device)
     out_am = policy_am.forward(
@@ -197,6 +201,7 @@ for problem in problems:
     action = actions[max_idxs][None, :]
     unnormalized_td = env.reset(td_orginal.clone()).to(device)
     cost_am = -get_reward_unnormalized(unnormalized_td, action)
+    actions_am = actions
 
     policy_vam = model_vam.policy.to(device)
     out_vam = policy_vam.forward(
@@ -213,24 +218,27 @@ for problem in problems:
     action = actions[max_idxs][None, :]
     unnormalized_td = env.reset(td_orginal.clone()).to(device)
     cost_vam = -get_reward_unnormalized(unnormalized_td, action)
+    actions_vam = actions
 
-    policy_vam_false = model_vam_false.policy.to(device)
-    out_vam_false = policy_vam_false.forward(
-        td_vam_false.clone(),
-        env,
-        phase="test",
-        decode_type="multistart_greedy",
-        num_starts=num_loc,
-        multistart=True,
-    )
-    reward = out_vam_false['reward']
-    actions = out_vam_false['actions']
-    max_reward, max_idxs = reward.max(dim=-1)
-    action = actions[max_idxs][None, :]
-    unnormalized_td = env.reset(td_orginal.clone()).to(device)
-    cost_vam_false = -get_reward_unnormalized(unnormalized_td, action)
+    import pdb; pdb.set_trace()
 
-    if optimal_cost is None:
-        print(f'{instance},N/A,{cost_am:},{cost_vam:},N/A%,{cost_vam_false:},N/A%,')
-    else:
-        print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam:},{(cost_vam - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam_false:},{(cost_vam_false - optimal_cost) / optimal_cost * 100:.2f}%,')
+    # policy_vam_false = model_vam_false.policy.to(device)
+    # out_vam_false = policy_vam_false.forward(
+    #     td_vam_false.clone(),
+    #     env,
+    #     phase="test",
+    #     decode_type="multistart_greedy",
+    #     num_starts=num_loc,
+    #     multistart=True,
+    # )
+    # reward = out_vam_false['reward']
+    # actions = out_vam_false['actions']
+    # max_reward, max_idxs = reward.max(dim=-1)
+    # action = actions[max_idxs][None, :]
+    # unnormalized_td = env.reset(td_orginal.clone()).to(device)
+    # cost_vam_false = -get_reward_unnormalized(unnormalized_td, action)
+
+    # if optimal_cost is None:
+    #     print(f'{instance},N/A,{cost_am:},{cost_vam:},N/A%')
+    # else:
+    #     print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam:},{(cost_vam - optimal_cost) / optimal_cost * 100:.2f}%')

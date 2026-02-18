@@ -53,8 +53,8 @@ class ReSymPolicy(AutoregressivePolicy):
         moe_kwargs: dict = {"encoder": None, "decoder": None},
         **kwargs
     ):
-        encoder_type = "mataft" if encoder in ["mataft", "matnet"] else "aft"
-        if encoder in ["aft", "afte"]:
+        encoder_type = "mataft" if encoder in ["mataft", "matnet"] else ("vam" if encoder == "vam" else "aft")
+        if encoder in ["aft", "afte", "gt"]:
             if encoder == "afte":
                 from models.zoo.icam.attnnet import AFTENetwork
                 encoder_network = AFTENetwork(
@@ -63,6 +63,16 @@ class ReSymPolicy(AutoregressivePolicy):
                     normalization=normalization,
                     activation=activation,
                     idt=idt,
+                    feedforward_hidden=feedforward_hidden,
+                )
+            elif encoder == "gt":
+                from models.zoo.marco.attnnet import GTNetwork
+                encoder_network = GTNetwork(
+                    num_layers=num_encoder_layers,
+                    embed_dim=embed_dim,
+                    num_heads=num_heads,
+                    normalization=normalization,
+                    activation=activation,
                     feedforward_hidden=feedforward_hidden,
                 )
             encoder = AFTEncoder(
@@ -124,6 +134,16 @@ class ReSymPolicy(AutoregressivePolicy):
                 net=encoder_network,
                 sdpa_fn=sdpa_fn_encoder,
                 moe_kwargs=moe_kwargs["encoder"],
+            )
+        elif encoder == "vam":
+            from models.zoo.vam.encoder import VAMEncoder
+            encoder = VAMEncoder(
+                embed_dim=embed_dim,
+                init_embedding=init_embedding,
+                env_name=env_name,
+                num_heads=num_heads,
+                num_layers=num_encoder_layers,
+                normalization=normalization,
             )
         elif encoder == "matnet":
             from rl4co.models.zoo.matnet.encoder import MatNetEncoder

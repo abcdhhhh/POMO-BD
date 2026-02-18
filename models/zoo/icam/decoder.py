@@ -262,6 +262,7 @@ class ICAMDecoder(AttentionModelDecoder):
         else:
             n = 100 if self.env_name == "tsp" else 101
             logits = logits + self.alpha * math.log(bias.shape[-1], n) * bias
+            # logits = logits - self.alpha * torch.log(-bias + 1e-10)
         
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here

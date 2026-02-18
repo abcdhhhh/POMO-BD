@@ -1,0 +1,10 @@
+# @package _global_
+
+defaults:
+  - /experiment/tsp/pomo.yaml
+
+ckpt_path: null # pretrained/tsp100/am-vam-None-100[]-multistart_sampling-0-True-0.0/199_-7.9510_-7.8191.ckpt
+model:
+  policy_kwargs:
+    encoder: vam
+    decoder: vam
