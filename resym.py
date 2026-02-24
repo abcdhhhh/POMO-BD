@@ -178,7 +178,24 @@ def run(cfg: DictConfig):
     elif cfg.mode == "val":
         trainer.validate(model, ckpt_path=cfg.ckpt_path)
     elif cfg.mode == "test":
+        if torch.cuda.is_available():
+            import gc
+            torch.cuda.empty_cache()
+            gc.collect()
+            start_mem = torch.cuda.memory_allocated()
+            print(f"Start Mem: {start_mem/1024**2:.2f} MB")
+            
         trainer.test(model, ckpt_path=cfg.ckpt_path)
+
+        if torch.cuda.is_available():
+            peak_mem = torch.cuda.max_memory_allocated()
+            end_mem = torch.cuda.memory_allocated()
+            print(f"Peak Mem: {peak_mem/1024**2:.2f} MB")
+            print(f"End Mem: {end_mem/1024**2:.2f} MB")
+            print(f"Overhead: {(peak_mem - start_mem)/1024**2:.2f} MB")
+            
+            # 重置峰值统计以便下次测量
+            torch.cuda.reset_peak_memory_stats()
 
 if __name__ == "__main__":
     run()

@@ -3,7 +3,7 @@
 defaults:
   - /experiment/cvrp/pomo.yaml
 
-ckpt_path: null # pretrained/tsp100/am-vam-None-100[]-multistart_sampling-0-True-0.0/199_-7.9510_-7.8191.ckpt
+ckpt_path: outputs/checkpoints/cvrp100/vam-vam-None-instance-relu-50.0-50[]-multistart_sampling-False-Adam-0.0003-1e-06/last.ckpt
 model:
   policy_kwargs:
     encoder: vam

@@ -4,7 +4,7 @@ defaults:
   - /experiment/mtvrp/rf.yaml
 
 env_name: symmtvrp
-ckpt_path: null # pretrained/mtvrp50/rf-bd/299_-10.8622_-10.4953.ckpt
+ckpt_path: pretrained/mtvrp100/te-bd/299_-16.8572_-16.4135.ckpt
 model:
   num_starts: null
 
