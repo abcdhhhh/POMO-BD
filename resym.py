@@ -184,9 +184,12 @@ def run(cfg: DictConfig):
             gc.collect()
             start_mem = torch.cuda.memory_allocated()
             print(f"Start Mem: {start_mem/1024**2:.2f} MB")
-            
+        import time
+        t = time.time()
+
         trainer.test(model, ckpt_path=cfg.ckpt_path)
 
+        print(f"Time: {time.time() - t:.2f} s")
         if torch.cuda.is_available():
             peak_mem = torch.cuda.max_memory_allocated()
             end_mem = torch.cuda.memory_allocated()

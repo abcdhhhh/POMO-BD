@@ -134,7 +134,7 @@ class VAMDecoder(AttentionModelDecoder):
             dist = torch.cdist(locs, locs, p=2)
 
         if "open_route" in td:
-            open_route = unbatchify(td["open_route"], num_starts)
+            open_route = unbatchify(td["open_route"], num_starts if num_starts > 1 else 1)
             assert (open_route == open_route[:, :1, :1]).all()
             open_route = open_route[:, 0, 0]
             dist[open_route][:, :, 0] = 0

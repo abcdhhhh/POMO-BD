@@ -93,12 +93,13 @@ model:
     test: ${model.metrics.val}
     log_on_step: True
 
+logger_name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.policy_kwargs.normalization}-${model.policy_kwargs.activation}-${model.policy_kwargs.tanh_clipping}-${model.batch_size}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.optimizer}-${model.optimizer_kwargs.lr}-${model.optimizer_kwargs.weight_decay}
 logger:
   # project: am
   # tags: ["${env_name}"]
   # group: ${env_name}${num_loc}
   save_dir: ${save_dir}
-  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.policy_kwargs.normalization}-${model.policy_kwargs.activation}-${model.policy_kwargs.tanh_clipping}-${model.batch_size}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.optimizer}-${model.optimizer_kwargs.lr}-${model.optimizer_kwargs.weight_decay}
+  name: ${env_name}${num_loc}/${logger_name}
 
 
 ckpt:

@@ -4,9 +4,9 @@ defaults:
   - /experiment/pctsp/icam.yaml
 
 env_name: sympctsp
-ckpt_path: pretrained/pctsp100/icam-bd/299_-6.0668_-5.9683.ckpt
+ckpt_path: pretrained/pctsp100/icam-bd/199_-6.0925_-5.9797.ckpt
 model:
   num_starts: null
 
 logger:
-  name: pctsp${num_loc}/bd/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.po_alpha}-${model.batch_size}-${model.optimizer_kwargs.lr}
+  name: pctsp${num_loc}/bd/${logger_name}

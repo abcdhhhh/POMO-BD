@@ -7,7 +7,7 @@ num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/op100/icam/299_30.4556_32.9341.ckpt
+ckpt_path: pretrained/op100/icam/199_30.2519_32.7912.ckpt
 
 env:
   env_name: ${env_name}
@@ -24,11 +24,11 @@ env:
   data_dir: ./data/
 
   val_file: op/val/${num_loc}_dist.npz
-  test_file: [op/test/100_dist.npz, op/test/500_dist.npz]
+  test_file: [op/test/500_dist.npz]
 
 model:
   batch_size: 128
-  val_batch_size: 500
+  val_batch_size: 64
   test_batch_size: ${model.val_batch_size}
   train_data_size: 128000
   val_data_size: 10000
@@ -93,12 +93,13 @@ model:
     test: ${model.metrics.val}
     log_on_step: True
 
+logger_name: ${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.policy_kwargs.normalization}-${model.policy_kwargs.activation}-${model.policy_kwargs.tanh_clipping}-${model.batch_size}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.optimizer}-${model.optimizer_kwargs.lr}-${model.optimizer_kwargs.weight_decay}
 logger:
   # project: am
   # tags: ["${env_name}"]
   # group: ${env_name}${num_loc}
   save_dir: ${save_dir}
-  name: ${env_name}${num_loc}/${model.policy_kwargs.encoder}-${model.policy_kwargs.decoder}-${model.policy_kwargs.pointer}-${model.num_starts}${model.num_augment_train_list}-${model.policy_kwargs.train_decode_type}-${model.policy_kwargs.logit_bias}-${model.po_alpha}-${model.batch_size}-${model.optimizer_kwargs.lr}
+  name: ${env_name}${num_loc}/${logger_name}
 
 
 ckpt:
@@ -112,7 +113,7 @@ ckpt:
 
 trainer:
   max_epochs: 300
-  precision: 32-true # set '32-true' if use aft encoder
+  precision: 16-mixed # set '32-true' if use aft encoder
   accumulate_grad_batches: 1
   gradient_clip_val: 1.0
   # set 'wandb' if use wandb, 'tensorboard' if use tensorboard, 'null' otherwise

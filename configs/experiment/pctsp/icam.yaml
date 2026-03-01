@@ -8,4 +8,4 @@ env:
   val_file: pctsp/val/${num_loc}.npz
   test_file: pctsp/test/${num_loc}.npz
 
-ckpt_path: pretrained/pctsp100/icam/299_-6.4940_-6.0268.ckpt
+ckpt_path: pretrained/pctsp100/icam/199_-6.5306_-6.0538.ckpt

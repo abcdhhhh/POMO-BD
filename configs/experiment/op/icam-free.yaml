@@ -3,7 +3,7 @@
 defaults:
   - /experiment/op/icam.yaml
 
-ckpt_path: pretrained/op100/icam-free/299_32.7600_33.0493.ckpt
+ckpt_path: pretrained/op100/icam-free/199_32.6061_32.9507.ckpt
 model:
   num_starts: null # 101
   policy_kwargs:
