@@ -53,7 +53,7 @@ def get_reward_unnormalized(td, actions):
     # if locs dtype is int, the round, else don't round
     if locs.dtype in [torch.int8, torch.int16, torch.int32, torch.int64]:
         d = d.round()
-    return -d.sum(dim=-1).item()
+    return -d.sum(dim=-1).round().int().item()
 
 # Utils function: we will normalize the coordinates of the VRP instances
 def normalize_coord(coord:torch.Tensor) -> torch.Tensor:
@@ -136,31 +136,31 @@ for line in lines:
                 optimal_dict[name] = value
                 
 
-# for problem in problems:
-    # instance = problem['name']
-    # # Inference
-    # td = tsplib_to_td(problem)
-    # td_orginal = tsplib_to_td(problem, normalize=False)
+for problem in problems:
+    instance = problem['name']
+    # Inference
+    td = tsplib_to_td(problem)
+    td_orginal = tsplib_to_td(problem, normalize=False)
 
-    # num_loc = td['locs'].shape[1]
+    num_loc = td['locs'].shape[1]
 
-    # if num_loc <= 0 or num_loc > 250:
-    #     continue
-if True:
-    num_loc = 200
+    if num_loc <= 700 or num_loc > 1000:
+        continue
+# if True:
+#     num_loc = 200
 
     env = TSPEnv(generator_params={"num_loc": num_loc})
-    td = env.generator._generate(batch_size=[1])
-    td_orginal = td
+    # td = env.generator._generate(batch_size=[1])
+    # td_orginal = td
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    # try:
-    #     bks_sol = (torch.tensor(problem['solution'], device=device, dtype=torch.int64) - 1)[None]
-    #     unnormalized_td = env.reset(td_orginal.clone()).to(device)
-    #     optimal_cost = -get_reward_unnormalized(unnormalized_td, bks_sol)
-    #     assert optimal_cost == optimal_dict[instance], f"Optimal cost mismatch for {instance}: {optimal_cost} vs {optimal_dict[instance]}"
-    # except:
-    #     optimal_cost = optimal_dict.get(instance, None)
+    try:
+        bks_sol = (torch.tensor(problem['solution'], device=device, dtype=torch.int64) - 1)[None]
+        unnormalized_td = env.reset(td_orginal.clone()).to(device)
+        optimal_cost = -get_reward_unnormalized(unnormalized_td, bks_sol)
+        assert optimal_cost == optimal_dict[instance], f"Optimal cost mismatch for {instance}: {optimal_cost} vs {optimal_dict[instance]}"
+    except:
+        optimal_cost = optimal_dict.get(instance, None)
     
     td_am = env.reset(td=td.clone()).to(device)
     td_vam = env.reset(td=td.clone()).to(device)
@@ -197,6 +197,7 @@ if True:
     )
     reward = out_am['reward']
     actions = out_am['actions']
+    del out_am
     max_reward, max_idxs = reward.max(dim=-1)
     action = actions[max_idxs][None, :]
     unnormalized_td = env.reset(td_orginal.clone()).to(device)
@@ -214,13 +215,14 @@ if True:
     )
     reward = out_vam['reward']
     actions = out_vam['actions']
+    del out_vam
     max_reward, max_idxs = reward.max(dim=-1)
     action = actions[max_idxs][None, :]
     unnormalized_td = env.reset(td_orginal.clone()).to(device)
     cost_vam = -get_reward_unnormalized(unnormalized_td, action)
     actions_vam = actions
 
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
 
     # policy_vam_false = model_vam_false.policy.to(device)
     # out_vam_false = policy_vam_false.forward(
@@ -238,7 +240,7 @@ if True:
     # unnormalized_td = env.reset(td_orginal.clone()).to(device)
     # cost_vam_false = -get_reward_unnormalized(unnormalized_td, action)
 
-    # if optimal_cost is None:
-    #     print(f'{instance},N/A,{cost_am:},{cost_vam:},N/A%')
-    # else:
-    #     print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam:},{(cost_vam - optimal_cost) / optimal_cost * 100:.2f}%')
+    if optimal_cost is None:
+        print(f'{instance},N/A,{cost_am:},{cost_vam:},N/A%')
+    else:
+        print(f'{instance},{optimal_cost:},{cost_am:},{(cost_am - optimal_cost) / optimal_cost * 100:.2f}%,{cost_vam:},{(cost_vam - optimal_cost) / optimal_cost * 100:.2f}%')

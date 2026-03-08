@@ -75,11 +75,11 @@ def vrplib_to_td(problem, normalize=True):
     # elif 'M' in name and 'CMT' not in name:
     #     instances.append(name)
 
-instances = sorted([x[:-4] for x in os.listdir('./vrplib/') if x.endswith('.vrp')])
+instances = sorted([x[:-4] for x in os.listdir('./vrplib/X/') if x.endswith('.vrp')])
 
 # Modify the path you want to save 
 # Note: we don't have to create this folder in advance
-path_to_save = './vrplib/' 
+path_to_save = './vrplib/X/' 
 
 # os.makedirs(path_to_save, exist_ok=True)
 # for instance in tqdm(instances):
@@ -191,9 +191,9 @@ for instance in instances:
     
     td_am = env.reset(td=td.clone()).to(device)
     td_vam = env.reset(td=td.clone()).to(device)
-    td_vam_false = env.reset(td=td.clone()).to(device)
-    td_am_sym = sym_env.reset(td=td.clone()).to(device)
-    td_vam_sym = sym_env.reset(td=td.clone()).to(device)
+    # td_vam_false = env.reset(td=td.clone()).to(device)
+    # td_am_sym = sym_env.reset(td=td.clone()).to(device)
+    # td_vam_sym = sym_env.reset(td=td.clone()).to(device)
 
     # augment = CompositeAugmentation(
     #     num_augment_list=[8],
@@ -209,34 +209,34 @@ for instance in instances:
 
     model_am = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "am", "pointer": None, "tanh_clipping": 50.0, })
     model_vam = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": True,})
-    model_vam_false = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": False, })
-    model_am_sym = ReSym(env=sym_env, policy_kwargs={
-            "encoder": "am", "decoder": "am", "pointer": None,     
-            "init_embedding": SymVRPInitEmbedding(128),
-            "context_embedding": SymVRPContext(embed_dim=128),
-            "dynamic_embedding": StaticEmbedding(),
-            "tanh_clipping": 50.0,
-            "logit_bias": False,
-        })
-    model_vam_sym = ReSym(env=sym_env, policy_kwargs={
-            "encoder": "am", "decoder": "vam", "pointer": None,     
-            "init_embedding": SymVRPInitEmbedding(128),
-            "context_embedding": SymVRPContext(embed_dim=128),
-            "dynamic_embedding": StaticEmbedding(),
-            "tanh_clipping": 50.0,
-            "logit_bias": True,
-        })
+    # model_vam_false = ReSym(env=env, policy_kwargs={"encoder": "am", "decoder": "vam", "pointer": None, "tanh_clipping": 50.0, "logit_bias": False, })
+    # model_am_sym = ReSym(env=sym_env, policy_kwargs={
+    #         "encoder": "am", "decoder": "am", "pointer": None,     
+    #         "init_embedding": SymVRPInitEmbedding(128),
+    #         "context_embedding": SymVRPContext(embed_dim=128),
+    #         "dynamic_embedding": StaticEmbedding(),
+    #         "tanh_clipping": 50.0,
+    #         "logit_bias": False,
+    #     })
+    # model_vam_sym = ReSym(env=sym_env, policy_kwargs={
+    #         "encoder": "am", "decoder": "vam", "pointer": None,     
+    #         "init_embedding": SymVRPInitEmbedding(128),
+    #         "context_embedding": SymVRPContext(embed_dim=128),
+    #         "dynamic_embedding": StaticEmbedding(),
+    #         "tanh_clipping": 50.0,
+    #         "logit_bias": True,
+    #     })
     
     path_am = "outputs/checkpoints/cvrp100/am-am-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
     path_vam = "outputs/checkpoints/cvrp100/am-vam-None-100[]-multistart_sampling-0-True-0.0-v1/last.ckpt"
-    path_vam_false = "outputs/checkpoints/cvrp100/am-vam-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
-    path_am_sym = "outputs/checkpoints/symcvrp100/am-am-None-101[]-multistart_sampling-0-False-0.0/last.ckpt"
-    path_vam_sym = "outputs/checkpoints/symcvrp100/am-vam-None-101[]-multistart_sampling-0-True-0.0/last.ckpt"
+    # path_vam_false = "outputs/checkpoints/cvrp100/am-vam-None-100[]-multistart_sampling-0-False-0.0-v1/last.ckpt"
+    # path_am_sym = "outputs/checkpoints/symcvrp100/am-am-None-101[]-multistart_sampling-0-False-0.0/last.ckpt"
+    # path_vam_sym = "outputs/checkpoints/symcvrp100/am-vam-None-101[]-multistart_sampling-0-True-0.0/last.ckpt"
     model_am.load_state_dict(torch.load(path_am, weights_only=False)['state_dict'])
     model_vam.load_state_dict(torch.load(path_vam, weights_only=False)['state_dict'])
-    model_vam_false.load_state_dict(torch.load(path_vam_false, weights_only=False)['state_dict'])
-    model_am_sym.load_state_dict(torch.load(path_am_sym, weights_only=False)['state_dict'])
-    model_vam_sym.load_state_dict(torch.load(path_vam_sym, weights_only=False)['state_dict'])
+    # model_vam_false.load_state_dict(torch.load(path_vam_false, weights_only=False)['state_dict'])
+    # model_am_sym.load_state_dict(torch.load(path_am_sym, weights_only=False)['state_dict'])
+    # model_vam_sym.load_state_dict(torch.load(path_vam_sym, weights_only=False)['state_dict'])
 
     policy_am = model_am.policy.to(device)
     out_am = policy_am.forward(
@@ -249,6 +249,7 @@ for instance in instances:
     )
     reward = out_am['reward']
     actions = out_am['actions']
+    del out_am
     max_reward, max_idxs = reward.max(dim=-1)
     action = actions[max_idxs][None, :]
     unnormalized_td = env.reset(td_orginal.clone()).to(device)
@@ -265,6 +266,7 @@ for instance in instances:
     )
     reward = out_vam['reward']
     actions = out_vam['actions']
+    del out_vam
     max_reward, max_idxs = reward.max(dim=-1)
     action = actions[max_idxs][None, :]
     unnormalized_td = env.reset(td_orginal.clone()).to(device)

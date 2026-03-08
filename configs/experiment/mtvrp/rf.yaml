@@ -7,7 +7,7 @@ num_loc: 50
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/mtvrp100/te-am-None-None[]-multistart_sampling-False-0.0/299_-16.8492_-16.4223.ckpt
+ckpt_path: pretrained/mtvrp50/rf/299_-10.8710_-10.5165.ckpt
 
 env:
   env_name: ${env_name}
