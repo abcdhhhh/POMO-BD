@@ -9,3 +9,7 @@
 [submodule "TSPLib"]
 	path = TSPLIB
 	url = git@github.com:shredderzwj/TSPLib.git
+
+[submodule "olist-vrp-benchmark"]
+	path = olist-vrp-benchmark
+	url = git@github.com:NVlabs/olist-vrp-benchmark.git
