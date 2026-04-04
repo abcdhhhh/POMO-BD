@@ -3,7 +3,7 @@
 defaults:
   - /experiment/mtvrp/rf.yaml
 
-ckpt_path: null
+ckpt_path: outputs/checkpoints/mtvrp50/te-reld-None-None[]-multistart_sampling-True-0.0/last.ckpt
 model:
   policy_kwargs:
     decoder: reld

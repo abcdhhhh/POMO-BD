@@ -30,10 +30,11 @@ class ReLDPointerAttention(PointerAttention):
             nn.Linear(hidden_dim, embed_dim)
         )
 
-    def forward(self, query, key, value, logit_key, attn_mask=None):
+    def forward(self, cur_node_embedding, query, key, value, logit_key, attn_mask=None):
         """Compute attention logits given query, key, value, logit key and attention mask.
 
         Args:
+            cur_node_embedding: current node embedding tensor of shape [B, ..., L, E]
             query: query tensor of shape [B, ..., L, E]
             key: key tensor of shape [B, ..., S, E]
             value: value tensor of shape [B, ..., S, E]
@@ -43,7 +44,7 @@ class ReLDPointerAttention(PointerAttention):
         """
         # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, attn_mask)
-        glimpse = heads + query
+        glimpse = heads + cur_node_embedding
         # glimpse = self._project_out(heads, attn_mask)
         glimpse = self.ffn(glimpse) + glimpse
 

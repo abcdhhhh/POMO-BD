@@ -1,0 +1,10 @@
+# @package _global_
+
+defaults:
+  - /experiment/mtvrp/rf-bd.yaml
+
+ckpt_path: null
+model:
+  policy_kwargs:
+    decoder: reld
+    logit_bias: True

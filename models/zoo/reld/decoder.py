@@ -205,11 +205,12 @@ class ReLDDecoder(AttentionModelDecoder):
             current_node = current_node.squeeze(-1)
 
         bias = gather_by_index(cached.bias, current_node)
+        cur_node_embedding = gather_by_index(cached.node_embeddings, current_node)
               
         mask = td["action_mask"]
 
         # Compute logits
-        logits = self.pointer(glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
+        logits = self.pointer(cur_node_embedding, glimpse_q, glimpse_k, glimpse_v, logit_k, mask)
 
         if not self.logit_bias or (any(name in self.env_name for name in ["sym", "tsp", "shpp"]) and td["i"][(0,) * td["i"].dim()].item() < 1):
             pass # not connected
