@@ -250,6 +250,25 @@ class ReSymPolicy(AutoregressivePolicy):
                 pointer=pointer,
                 moe_kwargs=moe_kwargs["decoder"],
             )
+        elif decoder == "reld":
+            from ..reld.decoder import ReLDDecoder
+            decoder = ReLDDecoder(
+                embed_dim=embed_dim,
+                num_heads=num_heads,
+                env_name=env_name,
+                encoder_type=encoder_type,
+                context_embedding=context_embedding,
+                dynamic_embedding=dynamic_embedding,
+                mask_inner=mask_inner,
+                out_bias_pointer_attn=out_bias_pointer_attn,
+                linear_bias=linear_bias_decoder,
+                use_graph_context=use_graph_context,
+                logit_bias=logit_bias,
+                check_nan=check_nan,
+                sdpa_fn=sdpa_fn_decoder,
+                pointer=pointer,
+                moe_kwargs=moe_kwargs["decoder"],
+            )
 
         super(ReSymPolicy, self).__init__(
             encoder=encoder,

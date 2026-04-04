@@ -13,7 +13,7 @@ from torch import Tensor
 
 from rl4co.envs import RL4COEnvBase
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.utils.ops import batchify, unbatchify, gather_by_index
+from rl4co.utils.ops import batchify, unbatchify, gather_by_index, get_distance
 import math
 
 log = get_pylogger(__name__)
@@ -70,15 +70,6 @@ class ICAMDecoder(AttentionModelDecoder):
                 embed_dim=embed_dim,
                 poly_layer_dim=embed_dim*2,
                 mask_inner=mask_inner,
-                check_nan=check_nan,
-            )
-        elif pointer == "reld":
-            from .attention import ReLDPointerAttention
-            pointer = ReLDPointerAttention(
-                embed_dim=embed_dim,
-                num_heads=num_heads,
-                mask_inner=mask_inner,
-                out_bias=out_bias_pointer_attn,
                 check_nan=check_nan,
             )
         
@@ -156,6 +147,12 @@ class ICAMDecoder(AttentionModelDecoder):
             dist = 1 - dist_original / (dist_original.max(dim=-1, keepdim=True)[0] + 1e-10)
         else:
             dist = torch.cdist(locs, locs, p=2)
+
+        if "open_route" in td:
+            open_route = unbatchify(td["open_route"], num_starts if num_starts > 1 else 1)
+            assert (open_route == open_route[:, :1, :1]).all()
+            open_route = open_route[:, 0, 0]
+            dist[open_route][:, :, 0] = 0
 
         bias = -dist
         if self.is_aft:

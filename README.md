@@ -27,7 +27,11 @@ python generate_data.py
 Take routefinder as an example, modify `configs/experiments/mtvrp/rf.yaml`, and then run
 
 ```bash
+# test
 CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=mtvrp/rf
+
+# train
+CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=mtvrp/rf mode=train trainer.logger=tensorboard ckpt_path=null
 ```
 
 # View

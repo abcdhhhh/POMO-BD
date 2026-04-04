@@ -5,10 +5,9 @@ import torch.nn.functional as F
 
 from einops import rearrange
 
-from rl4co.models.nn.attention import PointerAttention
-import math
+from rl4co.models.nn.attention import MultiHeadAttention
 
-class GTAttention(nn.Module):
+class GTAttention(MultiHeadAttention):
     """ 
     following MARCO (https://arxiv.org/abs/2408.02207) and GT (https://arxiv.org/abs/2012.09699)
     inputs include a distance matrix
@@ -21,34 +20,35 @@ class GTAttention(nn.Module):
         device: str = None,
         dtype: torch.dtype = None,
     ):
-        super().__init__()
-        self.num_heads = num_heads
         factory_kwargs = {"device": device, "dtype": dtype}
-        self.Wqkv = nn.Linear(embed_dim, 3 * embed_dim, bias=bias, **factory_kwargs)
+        super().__init__(embed_dim=embed_dim, num_heads=num_heads, bias=bias, **factory_kwargs)
         self.We = nn.Linear(1, num_heads, bias=bias, **factory_kwargs)
-        self.out_proj = nn.Linear(embed_dim, embed_dim, bias=bias, **factory_kwargs)
     
     def forward(self, x: torch.Tensor, dist: torch.Tensor, attn_mask=None):
         """
         x: (batch, seqlen, hidden_dim)
         dist: (batch, seqlen, seqlen)
         """
+        # Project query, key, value
         q, k, v = rearrange(
-            self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads,
+            self.Wqkv(x), "b s (three h d) -> three b h s d", three=3, h=self.num_heads
         ).unbind(dim=0)
+
         e = rearrange(
             self.We(dist.unsqueeze(-1)), "b s1 s2 h -> b h s1 s2"
         )
-
-        scores = torch.matmul(q, k.transpose(-2, -1)) / (k.size(-1) ** 0.5)
-        scores = scores + e
         if attn_mask is not None:
             if attn_mask.dtype == torch.bool:
-                scores.masked_fill_(~attn_mask, float("-inf"))
+                e.masked_fill_(~attn_mask, float("-inf"))
             else:
-                scores += attn_mask
-        scores = F.softmax(scores, dim=-1)
-
-        out = torch.matmul(scores, v)
+                e += attn_mask
         
-        return self.out_proj(rearrange(out, "b h s d -> b s (h d)"))      
+        # Scaled dot product attention
+        out = self.sdpa_fn(
+            q,
+            k,
+            v,
+            attn_mask=e,
+            dropout_p=self.attention_dropout,
+        )
+        return self.out_proj(rearrange(out, "b h s d -> b s (h d)")) 

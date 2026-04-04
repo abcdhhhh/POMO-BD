@@ -15,7 +15,7 @@ class Normalization(nn.Module):
             normalizer_class = {
                 "batch": nn.BatchNorm1d,
                 "instance": nn.InstanceNorm1d,
-                "rms": nn.RMSNorm,
+                "rms": RMSNorm,
             }.get(normalization, None)
             
             if normalization == "rms":
@@ -32,7 +32,7 @@ class Normalization(nn.Module):
             return self.normalizer(x.view(-1, x.size(-1))).view(*x.size())
         elif isinstance(self.normalizer, nn.InstanceNorm1d):
             return self.normalizer(x.permute(0, 2, 1)).permute(0, 2, 1)
-        elif isinstance(self.normalizer, nn.RMSNorm):
+        elif isinstance(self.normalizer, RMSNorm):
             return self.normalizer(x)
         elif self.normalizer == "layer":
             return (x - x.mean((1, 2)).view(-1, 1, 1)) / torch.sqrt(
@@ -84,6 +84,21 @@ class SwiGLU(nn.Module):
         x1, x2 = x.chunk(2, dim=-1)
         x = F.silu(x1) * x2
         return x
+    
+class RMSNorm(nn.Module):
+    """From https://github.com/meta-llama/llama-models"""
+
+    def __init__(self, dim: int, eps: float = 1e-5, **kwargs):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(dim))
+
+    def _norm(self, x):
+        return x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + self.eps)
+
+    def forward(self, x):
+        output = self._norm(x.float()).type_as(x)
+        return output * self.weight
     
     
 if __name__ == "__main__":
