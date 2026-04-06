@@ -44,9 +44,9 @@ class ReLDPointerAttention(PointerAttention):
         """
         # Compute inner multi-head attention with no projections.
         heads = self._inner_mha(query, key, value, attn_mask)
-        glimpse = heads + cur_node_embedding
+        glimpse = heads # + cur_node_embedding
         # glimpse = self._project_out(heads, attn_mask)
-        glimpse = self.ffn(glimpse) + glimpse
+        # glimpse = self.ffn(glimpse) + glimpse
 
         # Batch matrix multiplication to compute logits (batch_size, num_steps, graph_size)
         # bmm is slightly faster than einsum and matmul

@@ -206,6 +206,7 @@ class ReLDDecoder(AttentionModelDecoder):
 
         bias = gather_by_index(cached.bias, current_node)
         cur_node_embedding = gather_by_index(cached.node_embeddings, current_node)
+        cur_node_embedding = cur_node_embedding.unsqueeze(1) if cur_node_embedding.ndim == 2 else cur_node_embedding
               
         mask = td["action_mask"]
 

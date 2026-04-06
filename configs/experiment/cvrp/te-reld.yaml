@@ -9,7 +9,7 @@ env:
   val_file: [vrp/val/100.npz, vrp/val/200.npz, vrp/val/500.npz]
   test_file: [vrp/test/100.npz, vrp/test/200.npz, vrp/test/500.npz]
 
-model:
-  batch_size: 128
+# model:
+#   batch_size: 128
 
 ckpt_path: null

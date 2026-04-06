@@ -36,7 +36,7 @@ env:
                           vrpbtw50, vrpl50, vrpltw50, vrptw50,
   ]
 
-  # val_file: [cvrp/val/100.npz, ovrpbltw/val/100.npz, cvrp/val/50.npz]
+  # val_file: [cvrp/val/100.npz, ovrpbltw/val/100.npz, cvrp/val/50.npz, ovrpbltw/val/50.npz]
   # test_file: [cvrp/test/100.npz, ovrp/test/100.npz, ovrpb/test/100.npz, ovrpbl/test/100.npz,
   #             ovrpbltw/test/100.npz, ovrpbtw/test/100.npz, ovrpl/test/100.npz, ovrpltw/test/100.npz, 
   #             ovrptw/test/100.npz, vrpb/test/100.npz, vrpbl/test/100.npz, vrpbltw/test/100.npz, 

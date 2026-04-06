@@ -3,7 +3,7 @@
 defaults:
   - /experiment/mtvrp/rf.yaml
 
-ckpt_path: pretrained/mtvrp50/rf-reld/299_-10.8067_-10.4631.ckpt
+ckpt_path: pretrained/mtvrp50/rf-reld/299_-10.8616_-10.5094.ckpt
 model:
   policy_kwargs:
     decoder: reld
