@@ -23,12 +23,12 @@ env:
   check_solution: False # optimization
   data_dir: ./data/
 
-  val_file: op/val/${num_loc}_dist.npz
-  test_file: [op/test/500_dist.npz]
+  val_file: [op/val/100_dist.npz, op/val/500_dist.npz]
+  test_file: [op/val/100_dist.npz, op/test/500_dist.npz]
 
 model:
   batch_size: 128
-  val_batch_size: 64
+  val_batch_size: 500
   test_batch_size: ${model.val_batch_size}
   train_data_size: 128000
   val_data_size: 10000
@@ -36,10 +36,10 @@ model:
 
   # keep batch_size * num_augment_train a constant for fair comparison
   num_augment_train_list: []
-  num_augment_list: []
+  num_augment_list: [8]
   # choose from 'dihedral8', 'symmetric', 'pdp', 'atsp'
   augment_fn_train_list: []
-  augment_fn_list: []
+  augment_fn_list: ['dihedral8']
   # set ['locs'] for euclidean routing, ['cost_matrix'] for atsp
   feats: ['locs']
 

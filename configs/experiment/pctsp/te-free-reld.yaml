@@ -1,0 +1,14 @@
+# @package _global_
+
+defaults:
+  - /experiment/pctsp/te-reld.yaml
+
+ckpt_path: null
+model:
+  num_starts: null
+  policy_kwargs:
+    # set 'multistart_sampling' for symmetric problems, 'sampling' for others
+    train_decode_type: sampling
+    # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
+    val_decode_type: sampling # ${model.policy_kwargs.train_decode_type}
+    test_decode_type: ${model.policy_kwargs.val_decode_type}

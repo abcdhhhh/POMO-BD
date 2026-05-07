@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /experiment/pctsp/te-reld.yaml
+
+env_name: sympctsp
+ckpt_path: pretrained/pctsp100/te-bd-reld/299_-6.0501_-5.9655.ckpt
+model:
+  num_starts: null
+
+logger:
+  name: pctsp${num_loc}/bd/${logger_name}

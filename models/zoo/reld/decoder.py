@@ -216,7 +216,8 @@ class ReLDDecoder(AttentionModelDecoder):
         if not self.logit_bias or (any(name in self.env_name for name in ["sym", "tsp", "shpp"]) and td["i"][(0,) * td["i"].dim()].item() < 1):
             pass # not connected
         else:
-            logits = logits + bias
+            n = 100 if self.env_name == "tsp" else 101
+            logits = logits + math.log(bias.shape[-1], n) * bias
         
         # Now we need to reshape the logits and mask to [B*S,N,...] is num_starts > 1 without dynamic embeddings
         # note that rearranging order is important here

@@ -132,7 +132,7 @@ class SymPCTSPEnv(RL4COEnvBase):
 
         # Init the action mask (all nodes are available)
         visited = torch.zeros(
-            (*batch_size, self.generator.num_loc + 1), dtype=torch.bool, device=device
+            (*batch_size, locs.shape[-2]), dtype=torch.bool, device=device
         )
         i = torch.zeros((*batch_size,), dtype=torch.int64, device=device)
         prize_required = torch.full(

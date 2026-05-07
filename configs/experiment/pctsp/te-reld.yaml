@@ -1,0 +1,19 @@
+# @package _global_
+
+defaults:
+  - /experiment/tsp/te-reld.yaml
+
+env_name: pctsp
+
+env:
+  val_file: [pctsp/val/100.npz, pctsp/val/500.npz]
+  test_file: [pctsp/val/100.npz, pctsp/test/500.npz]
+
+# model:
+#   batch_size: 128
+
+ckpt_path: null
+
+ckpt:
+  monitor: val/max_reward/0
+  filename: "{epoch:02d}_{val/reward/0:.4f}_{val/max_reward/0:.4f}"

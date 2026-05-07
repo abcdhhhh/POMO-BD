@@ -12,4 +12,4 @@ env:
 # model:
 #   batch_size: 128
 
-ckpt_path: null
+ckpt_path: pretrained/cvrp100/te-reld/299_-16.1721_-15.8446.ckpt

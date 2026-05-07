@@ -7,7 +7,7 @@ num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: null
+ckpt_path: pretrained/tsp100/te-reld/299_-7.8548_-7.8010.ckpt
 
 env:
   env_name: ${env_name}
