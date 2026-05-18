@@ -5,7 +5,7 @@ defaults:
 
 ckpt_path: pretrained/cvrptw50/pomo-free/499_-15.8970_-15.5910.ckpt
 model:
-  num_starts: null # 101
+  num_starts: 51
   policy_kwargs:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: sampling

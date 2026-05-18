@@ -6,7 +6,7 @@ defaults:
 env_name: cvrp
 
 env:
-  val_file: [vrp/val/100.npz, vrp/val/200.npz, vrp/val/500.npz]
-  test_file: [vrp/test/100.npz, vrp/test/200.npz, vrp/test/500.npz]
+  val_file: [vrp/val/100.npz]
+  test_file: [vrp/test/100.npz]
 
 ckpt_path: pretrained/cvrp100/pomo/499_-16.3359_-15.9275.ckpt

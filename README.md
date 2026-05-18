@@ -22,20 +22,22 @@ pip install torch -i https://download.pytorch.org/whl/cu118 --force-reinstall
 python generate_data.py
 ```
 
+CVRPlib instances can be downloaded from https://galgos.inf.puc-rio.br/cvrplib/en/instances/1 .
+
 # Run
 
-Take routefinder as an example, modify `configs/experiments/mtvrp/rf.yaml`, and then run
+Take ICAM-BD on OP as an example, set hyperparameters in `configs/experiments/op/icam-bd.yaml`, and then run
 
 ```bash
 # test
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=mtvrp/rf
+CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=op/icam-bd
 
 # train
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=mtvrp/rf mode=train trainer.logger=tensorboard ckpt_path=null
+CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=op/icam-bd mode=train trainer.logger=tensorboard ckpt_path=null
 ```
 
 # View
 
 ```bash
-tensorboard --logdir outputs/mtvrp50
+tensorboard --logdir outputs/op100
 ```

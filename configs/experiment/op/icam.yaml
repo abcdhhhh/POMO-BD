@@ -23,8 +23,8 @@ env:
   check_solution: False # optimization
   data_dir: ./data/
 
-  val_file: [op/val/100_dist.npz, op/val/500_dist.npz]
-  test_file: [op/val/100_dist.npz, op/test/500_dist.npz]
+  val_file: [op/val/100_dist.npz]
+  test_file: [op/val/100_dist.npz]
 
 model:
   batch_size: 128
@@ -57,7 +57,7 @@ model:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: multistart_sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: multistart_greedy # ${model.policy_kwargs.train_decode_type}
+    val_decode_type: multistart_sampling # ${model.policy_kwargs.train_decode_type}
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
     encoder: aft

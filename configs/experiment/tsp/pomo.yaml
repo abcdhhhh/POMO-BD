@@ -36,10 +36,10 @@ model:
 
   # keep batch_size * num_augment_train a constant for fair comparison
   num_augment_train_list: []
-  num_augment_list: []
+  num_augment_list: [8]
   # choose from 'dihedral8', 'symmetric', 'pdp', 'atsp'
   augment_fn_train_list: []
-  augment_fn_list: []
+  augment_fn_list: ['dihedral8']
   # set ['locs'] for euclidean routing, ['cost_matrix'] for atsp
   feats: ['locs']
 
@@ -57,7 +57,7 @@ model:
     # set 'multistart_sampling' for symmetric problems, 'sampling' for others
     train_decode_type: multistart_sampling
     # set 'multistart_greedy' for symmetric problems, 'sampling/greedy' for others
-    val_decode_type: multistart_greedy # ${model.policy_kwargs.train_decode_type}
+    val_decode_type: multistart_sampling # ${model.policy_kwargs.train_decode_type}
     test_decode_type: ${model.policy_kwargs.val_decode_type}
     # choose from 'aft', 'mataft', 'am', 'matnet', 'ham', 'haft'
     encoder: am
