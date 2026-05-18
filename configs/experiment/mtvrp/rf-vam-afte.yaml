@@ -1,9 +1,0 @@
-# @package _global_
-
-defaults:
-  - /experiment/mtvrp/rf-vam.yaml
-
-ckpt_path: outputs/checkpoints/mtvrp50/afte-vam-None-None[]-multistart_sampling-True-0.0/299_-10.8526_-10.4994.ckpt 
-model:
-  policy_kwargs:
-    encoder: afte

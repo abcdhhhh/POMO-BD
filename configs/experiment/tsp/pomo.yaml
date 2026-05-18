@@ -7,7 +7,7 @@ num_loc: 100
 embed_dim: 128
 num_heads: 8
 save_dir: ./outputs/
-ckpt_path: pretrained/tsp100/am-am-None-100[]-multistart_sampling-0-False-0.0/199_-7.9830_-7.8336.ckpt
+ckpt_path: null
 
 env:
   env_name: ${env_name}
@@ -80,7 +80,7 @@ model:
   
   optimizer: Adam
   optimizer_kwargs:
-    lr: 3e-4
+    lr: 1e-4
     weight_decay: 1e-6
   lr_scheduler:
     "MultiStepLR"

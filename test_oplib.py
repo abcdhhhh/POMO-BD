@@ -9,13 +9,15 @@ from models.zoo.resym.model import ReSym
 from models.nn.env_embeddings.symop import SymOPContext, SymOPInitEmbedding
 from rl4co.models.nn.env_embeddings.dynamic import StaticEmbedding
 from models.zoo.resym.transforms import CompositeAugmentation
+import re
 
 torch.manual_seed(1234)
 
 #### READ
 
 path = Path('./OPLib/instances/gen3')
-instances = sorted([x for x in os.listdir('./OPLib/instances/gen3') if x.endswith('.oplib')])
+sol_path = Path('./OPLib/solutions/ea4op/gen3')
+instances = sorted([x for x in os.listdir('./OPLib/instances/gen3') if x.endswith('.oplib')], key=lambda x: int(re.search(r'(\d+)', x).group(1)))
 for fn in instances:
     with open(os.path.join(path, fn), 'r') as fp:
         lines = fp.readlines()
@@ -35,7 +37,7 @@ for fn in instances:
             edge_type = line.split()[-1]
     if num_loc > 250 or edge_type != 'EUC_2D':
         continue
-    print(fn)
+
     locs_origin = torch.zeros(num_loc, 2, dtype=torch.float)
     prize_origin = torch.zeros(num_loc, dtype=torch.int)
 
@@ -49,6 +51,14 @@ for fn in instances:
     locs = (locs_origin - locs_origin.min(dim=0, keepdim=True)[0]) / scale
     prize = prize_origin / 100
     max_length = max_length_origin / scale 
+
+    with open(os.path.join(sol_path, fn.replace('.oplib', '.sol')), 'r') as fp:
+        lines = fp.readlines()
+
+    for i, line in enumerate(lines):
+        if 'ROUTE_SCORE' in line:
+            cost_bks = int(line.split()[-1])
+            break
 
 
     #### INPUT
@@ -69,7 +79,7 @@ for fn in instances:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     td_d = env.reset(td=data.clone()).to(device)
     td_free = env.reset(td=data.clone()).to(device)
-    td_nd = sym_env.reset(td=data.clone()).to(device)
+    td_bd = sym_env.reset(td=data.clone()).to(device)
 
     augment = CompositeAugmentation(
         num_augment_list=[8],
@@ -78,38 +88,37 @@ for fn in instances:
 
     td_d = augment(td_d)
     td_free = augment(td_free)
-    td_nd = augment(td_nd)
+    td_bd = augment(td_bd)
 
     model_d = ReSym(env=env, policy_kwargs={"encoder": "aft", "decoder": "cab", "pointer": "aft", "logit_bias": True})
     model_free = ReSym(env=env, policy_kwargs={"encoder": "aft", "decoder": "cab", "pointer": "aft", "logit_bias": True})
-    model_nd = ReSym(env=sym_env, policy_kwargs={
+    model_bd = ReSym(env=sym_env, policy_kwargs={
             "encoder": "aft", "decoder": "cab", "pointer": "aft", "logit_bias": True,  
             "init_embedding": SymOPInitEmbedding(128),
             "context_embedding": SymOPContext(embed_dim=128),
             "dynamic_embedding": StaticEmbedding(),
     })
 
-    path_d = "./pretrained/op100/icam/299_30.4556_32.9341.ckpt"
-    path_free = "./pretrained/op100/icam-free/299_32.7600_33.0493.ckpt"
-    path_nd = "./pretrained/op100/icam-bd/299_32.1701_33.1703.ckpt"
+    path_d = "pretrained/op100/icam/199_30.2519_32.7912.ckpt"
+    path_free = "pretrained/op100/icam-free/199_32.6061_32.9507.ckpt"
+    path_bd = "pretrained/op100/icam-bd/199_31.9754_33.0976.ckpt"
     model_d.load_state_dict(torch.load(path_d, weights_only=False)['state_dict'])
     model_free.load_state_dict(torch.load(path_free, weights_only=False)['state_dict'])
-    model_nd.load_state_dict(torch.load(path_nd, weights_only=False)['state_dict'])
+    model_bd.load_state_dict(torch.load(path_bd, weights_only=False)['state_dict'])
 
     policy_d = model_d.policy.to(device)
     out_d = policy_d.forward(
         td_d.clone(), 
         env, 
         phase="test", 
-        decode_type="multistart_greedy", 
+        decode_type="multistart_sampling", 
         num_starts=num_loc-1, 
         multistart=True,
     )
     reward = out_d['reward']
     actions = out_d['actions']
     max_reward, max_idxs = reward.max(dim=-1)
-    print(int(max_reward * 100))
-    print(actions[max_idxs])
+    cost_d = int(max_reward * 100)
 
     policy_free = model_free.policy.to(device)
     out_free = policy_free.forward(
@@ -123,22 +132,25 @@ for fn in instances:
     reward = out_free['reward']
     actions = out_free['actions']
     max_reward, max_idxs = reward.max(dim=-1)
-    print(int(max_reward * 100))
-    print(actions[max_idxs])
+    cost_free = int(max_reward * 100)
 
 
-    policy_nd = model_nd.policy.to(device)
-    out_nd = policy_nd.forward(
-        td_nd.clone(), 
+    policy_bd = model_bd.policy.to(device)
+    out_bd = policy_bd.forward(
+        td_bd.clone(), 
         sym_env, 
         phase="test", 
-        decode_type="multistart_greedy", 
+        decode_type="multistart_sampling", 
         num_starts=num_loc, 
         multistart=True,
     )
-    reward = out_nd['reward']
-    actions = out_nd['actions']
+    reward = out_bd['reward']
+    actions = out_bd['actions']
     max_reward, max_idxs = reward.max(dim=-1)
-    print(int(max_reward * 100))
-    print(actions[max_idxs])
-    # import pdb; pdb.set_trace()
+    cost_bd = int(max_reward * 100)
+
+    print(f'{fn.split('-')[0]},{cost_bks:},', end='')
+    for cost in [cost_d, cost_free, cost_bd]:
+        gap = -(cost - cost_bks) / cost_bks * 100
+        print(f'{cost},{gap:.2f}%,', end='')
+    print()
