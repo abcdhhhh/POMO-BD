@@ -23,14 +23,14 @@ env:
   check_solution: False # optimization
   data_dir: ./data/
 
-  val_file: [tsp/val/100.npz, tsp/val/200.npz, tsp/val/500.npz]
-  test_file: [tsp/test/100.npz, tsp/test/200.npz, tsp/test/500.npz]
+  val_file: [tsp/val/100.npz]
+  test_file: [tsp/test/100.npz]
 
 model:
-  batch_size: 50
+  batch_size: 128
   val_batch_size: 500
   test_batch_size: ${model.val_batch_size}
-  train_data_size: 100000
+  train_data_size: 128000
   val_data_size: 10000
   test_data_size: ${model.val_data_size}
 
@@ -103,8 +103,8 @@ logger:
 
 
 ckpt:
-  monitor: val/max_reward/0
-  filename: "{epoch:02d}_{val/reward/0:.4f}_{val/max_reward/0:.4f}"
+  monitor: val/max_reward
+  filename: "{epoch:02d}_{val/reward:.4f}_{val/max_reward:.4f}"
   auto_insert_metric_name: False
   save_top_k: -1
   every_n_epochs: 50
