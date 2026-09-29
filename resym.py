@@ -12,6 +12,28 @@ from rl4co.envs import get_env, ENV_REGISTRY
 
 from models.zoo.resym.model import ReSym
 
+
+def patch_rl4co() -> None:
+    """Apply the compatibility patches that this repository needs from RL4CO.
+
+    ``rl4co/`` is a git submodule pinned to upstream https://github.com/ai4co/rl4co, so changes
+    made inside it could not be committed here and would be lost by anyone cloning with
+    ``--recurse-submodules``. We therefore patch at runtime instead of editing the submodule.
+
+    Upstream ``CVRPTWEnv.load_data(name, solomon=..., type=...)`` is a Solomon-instance loader
+    that shadows ``RL4COEnvBase.load_data(fpath, batch_size)``, which ``dataset()`` calls to read
+    the pre-generated ``.npz`` splits; keeping it would break CVRPTW dataset loading. We restore
+    the base implementation here.
+    """
+    from rl4co.data.utils import load_npz_to_tensordict
+    from rl4co.envs.routing.cvrptw.env import CVRPTWEnv
+
+    CVRPTWEnv.load_data = staticmethod(lambda fpath, batch_size=[]: load_npz_to_tensordict(fpath))
+
+
+patch_rl4co()
+
+
 @hydra.main(config_path="configs", config_name="resym", version_base="1.3")
 def run(cfg: DictConfig):
     torch.manual_seed(cfg.get("seed", 1234))
@@ -153,10 +175,6 @@ def run(cfg: DictConfig):
             **model_params_dict,
         )
 
-    # if cfg.ckpt_path:
-    #     ckpt_state_dict = torch.load(cfg.ckpt_path, weights_only=False)['state_dict']
-    #     model.load_state_dict(ckpt_state_dict, strict=True)
-
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.path.join(cfg.save_dir, "checkpoints", cfg.logger.name),
         **cfg.ckpt,
@@ -174,9 +192,9 @@ def run(cfg: DictConfig):
     )
     
     if cfg.mode == "train":
-        trainer.fit(model, ckpt_path=cfg.ckpt_path)
+        trainer.fit(model, ckpt_path=cfg.ckpt_path, weights_only=False)
     elif cfg.mode == "val":
-        trainer.validate(model, ckpt_path=cfg.ckpt_path)
+        trainer.validate(model, ckpt_path=cfg.ckpt_path, weights_only=False)
     elif cfg.mode == "test":
         if torch.cuda.is_available():
             import gc
@@ -187,7 +205,7 @@ def run(cfg: DictConfig):
         import time
         t = time.time()
 
-        trainer.test(model, ckpt_path=cfg.ckpt_path)
+        trainer.test(model, ckpt_path=cfg.ckpt_path, weights_only=False)
 
         print(f"Time: {time.time() - t:.2f} s")
         if torch.cuda.is_available():

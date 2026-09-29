@@ -39,9 +39,9 @@ BD can also be applied to the generalization benchmarks of the paper (PCTSP500/1
 | Problem | Method | Objective | Gap | Time |
 | --- | --- | --- | --- | --- |
 | OP100 ↑ | EA4OP (heuristic) | 33.19 | 0.00% | 15m |
-| | ICAM | 33.11 | 0.24% | 28s |
-| | ICAM-free | 33.21 | −0.07% | 28s |
-| | **ICAM-BD** | **33.27** | **−0.26%** | 32s |
+| | ICAM | 33.15 | 0.12% | 28s |
+| | ICAM-free | 33.25 | −0.19% | 28s |
+| | **ICAM-BD** | **33.31** | **−0.37%** | 32s |
 | PCTSP100 ↓ | ILS C++ (heuristic) | 5.98 | 0.00% | 12h |
 | | ICAM | 6.00 | 0.40% | 30s |
 | | ICAM-free | 5.97 | −0.09% | 29s |
@@ -59,24 +59,21 @@ Balanced Decoding adds only ~10%–20% decoding time while improving solution qu
 
 ## 1. Environment setup
 
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) first, then create the project environment from the lockfile:
+
 ```bash
-# Python >= 3.10 (3.12 recommended)
-conda create -n rl4co python=3.12
-conda activate rl4co
+uv sync --locked
 
-# install the bundled RL4CO (editable; this is the version used for the paper)
-cd rl4co
-pip install -e .
-cd ..
-
-# extra dependencies used by the experiments
-pip install tensorboard tsplib95 vrplib pyvrp ortools
+# optional dependencies used by logging and baseline/data utilities
+uv pip install tensorboard tsplib95 vrplib pyvrp ortools
 ```
 
-If your CUDA version is 11, reinstall PyTorch with a matching wheel:
+`uv sync` creates `.venv`, installs the root project and the bundled RL4CO workspace member in editable mode, and uses a Python version that meets the project's `>=3.12` requirement. Run project commands with `uv run`; there is no need to activate the environment manually.
+
+If you use CUDA 11, reinstall PyTorch with a matching wheel:
 
 ```bash
-pip install torch -i https://download.pytorch.org/whl/cu118 --force-reinstall
+uv pip install torch --index-url https://download.pytorch.org/whl/cu118 --reinstall
 ```
 
 ### Required patch: `CVRPTWEnv.load_data`
@@ -86,7 +83,7 @@ pip install torch -i https://download.pytorch.org/whl/cu118 --force-reinstall
 ## 2. Dataset
 
 ```bash
-python generate_data.py
+uv run python generate_data.py
 ```
 
 This writes `.npz` files to `./data/<problem>/{val,test}/{size}.npz` (validation seed `4321`, test seed `1234`), e.g. `data/op/val/100_dist.npz`, `data/vrp/test/100.npz`, `data/vrptw/test/50.npz`, `data/pctsp/test/100.npz`, and the 24 MTVRP variants under `data/mtvrp/`.
@@ -129,23 +126,23 @@ Take ICAM-BD on OP as an example. Hyper-parameters live in `configs/experiment/o
 
 ```bash
 # test with the released checkpoint
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=op/icam-bd
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=op/icam-bd
 ```
 
 Other configurations are selected the same way:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=pctsp/icam-bd
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=cvrp/pomo-bd
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=cvrptw/pomo-bd
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=cvrp/pomo-free   # free first step
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=cvrp/pomo        # multi-start baseline
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=pctsp/icam-bd
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=cvrp/pomo-bd
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=cvrptw/pomo-bd
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=cvrp/pomo-free   # free first step
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=cvrp/pomo        # multi-start baseline
 ```
 
 `mode: test` is the default; `ckpt_path` is taken from the config. To test your own checkpoint, override it:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=op/icam-bd \
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=op/icam-bd \
     ckpt_path=outputs/checkpoints/op100/bd/<logger_name>/<epoch>_<reward>_<max_reward>.ckpt
 ```
 
@@ -154,7 +151,7 @@ The runner prints the metrics, the wall-clock time of the test pass, and the pea
 ## 5. Training
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=op/icam-bd \
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=op/icam-bd \
     mode=train trainer.logger=tensorboard ckpt_path=null
 ```
 
@@ -163,8 +160,8 @@ CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=op/icam-bd \
 - Logs are written under `outputs/<problem><num_loc>/...` by `TensorBoardLogger`:
 
 ```bash
-tensorboard --logdir outputs            # everything
-tensorboard --logdir outputs/op100      # only OP100
+uv run tensorboard --logdir outputs            # everything
+uv run tensorboard --logdir outputs/op100      # only OP100
 ```
 
 ## 6. Configuration
@@ -194,7 +191,7 @@ Frequently used options (all overridable on the command line):
 Example: evaluate ICAM-BD on OP with a different size and logging backend:
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python resym.py +experiment=op/icam-bd \
+CUDA_VISIBLE_DEVICES=0 uv run python resym.py +experiment=op/icam-bd \
     num_loc=50 env.val_file=[op/val/50_dist.npz] env.test_file=[op/test/50_dist.npz] \
     trainer.logger=tensorboard
 ```
@@ -221,7 +218,7 @@ POMO-BD/
 │   ├── zoo/icam/             # AFT encoder and ICAM (CAB) decoder
 │   └── nn/env_embeddings/     # init / context embeddings for every environment
 ├── pretrained/               # released checkpoints
-└── rl4co/                    # vendored RL4CO, installed with `pip install -e .`
+└── rl4co/                    # vendored RL4CO, installed editable by `uv sync`
 ```
 
 ## 8. Notes and caveats
