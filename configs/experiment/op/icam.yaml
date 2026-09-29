@@ -24,7 +24,7 @@ env:
   data_dir: ./data/
 
   val_file: [op/val/100_dist.npz]
-  test_file: [op/val/100_dist.npz]
+  test_file: [op/test/100_dist.npz]
 
 model:
   batch_size: 128
