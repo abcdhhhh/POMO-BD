@@ -1,0 +1,13 @@
+# Hydra root configuration for `resym.py`.
+#
+# Every concrete setting (env, model, trainer, logger, ckpt, mode, seed, ...)
+# is injected by an experiment config chosen on the command line, e.g.
+#
+#     python resym.py +experiment=op/icam-bd
+#
+# Experiment configs are declared with `# @package _global_`, i.e. they write
+# directly into this package, so no keys need to be defined here. An explicit
+# `_self_` is kept so that the file is a valid (non-empty) Hydra config.
+defaults:
+  - _self_
+

@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /experiment/tsp/pomo.yaml
+
+env_name: cvrptw
+num_loc: 50
+env:
+  val_file: [vrptw/val/50.npz]
+  test_file: [vrptw/test/50.npz]
+
+ckpt_path: pretrained/cvrptw50/pomo/499_-16.1163_-15.3068.ckpt

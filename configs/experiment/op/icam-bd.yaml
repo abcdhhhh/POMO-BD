@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /experiment/op/icam.yaml
+
+env_name: symop
+ckpt_path: pretrained/op100/icam-bd/199_31.9754_33.0976.ckpt
+model:
+  num_starts: null
+
+logger:
+  name: op${num_loc}/bd/${logger_name}

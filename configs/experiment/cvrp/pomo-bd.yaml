@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /experiment/cvrp/pomo.yaml
+
+env_name: symcvrp
+ckpt_path: pretrained/cvrp100/pomo-bd/499_-16.3031_-15.9040.ckpt
+model:
+  num_starts: null
+
+logger:
+  name: cvrp${num_loc}/bd/${logger_name}

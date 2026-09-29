@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /experiment/pctsp/icam.yaml
+
+env_name: sympctsp
+ckpt_path: pretrained/pctsp100/icam-bd/199_-6.0925_-5.9797.ckpt
+model:
+  num_starts: null
+
+logger:
+  name: pctsp${num_loc}/bd/${logger_name}

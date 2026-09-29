@@ -1,0 +1,11 @@
+# @package _global_
+
+defaults:
+  - /experiment/op/icam.yaml
+
+env_name: pctsp
+env:
+  val_file: [pctsp/val/100.npz]
+  test_file: [pctsp/test/100.npz]
+
+ckpt_path: pretrained/pctsp100/icam/199_-6.5306_-6.0538.ckpt

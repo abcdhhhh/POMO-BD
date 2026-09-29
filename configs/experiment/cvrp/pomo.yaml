@@ -1,0 +1,12 @@
+# @package _global_
+
+defaults:
+  - /experiment/tsp/pomo.yaml
+
+env_name: cvrp
+
+env:
+  val_file: [vrp/val/100.npz]
+  test_file: [vrp/test/100.npz]
+
+ckpt_path: pretrained/cvrp100/pomo/499_-16.3359_-15.9275.ckpt
