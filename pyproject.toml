@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "rl4co",
-    "torch>=2.14.0",
+    "torch>=2.6,<3",
 ]
 
 [tool.uv.workspace]

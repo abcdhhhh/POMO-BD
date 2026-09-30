@@ -192,7 +192,7 @@ def run(cfg: DictConfig):
     )
     
     if cfg.mode == "train":
-        trainer.fit(model, ckpt_path=cfg.ckpt_path, weights_only=False)
+        trainer.fit(model, ckpt_path=cfg.ckpt_path)
     elif cfg.mode == "val":
         trainer.validate(model, ckpt_path=cfg.ckpt_path, weights_only=False)
     elif cfg.mode == "test":
