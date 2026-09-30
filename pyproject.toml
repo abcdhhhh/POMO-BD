@@ -6,20 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "rl4co",
-    "torch==2.6.0+cu124",
+    "torch>=2.6,<3",
 ]
 
 [[tool.uv.index]]
 url = "https://mirrors.nju.edu.cn/pypi/web/simple/"
 default = true
 
-[[tool.uv.index]]
-name = "pytorch-cn"
-url = "https://mirrors.nju.edu.cn/pytorch/whl/cu124/"
-explicit = true  
-
 [tool.uv.sources]
-torch = { index = "pytorch-cn" }
-torchvision = { index = "pytorch-cn" }
-torchaudio = { index = "pytorch-cn" }
 rl4co = { path = "./rl4co", editable = true }

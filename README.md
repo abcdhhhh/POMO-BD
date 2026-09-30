@@ -61,21 +61,24 @@ Balanced Decoding adds only ~10%–20% decoding time while improving solution qu
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) first, then create the project environment:
 
-```bash
-uv sync
+Choose one command matching the CUDA version supported by your NVIDIA driver (check `nvidia-smi`; a separate CUDA Toolkit installation is not required for PyTorch wheels):
 
-# optional dependencies used by logging and baseline/data utilities
+| Environment | Command |
+| --- | --- |
+| CUDA 11.8 | `uv sync --index https://download.pytorch.org/whl/cu118` |
+| CUDA 12.4 | `uv sync --index https://download.pytorch.org/whl/cu124` |
+| CUDA 13.0 | `uv sync --index https://download.pytorch.org/whl/cu130` |
+| CPU only | `uv sync --index https://download.pytorch.org/whl/cpu` |
+
+Then install optional dependencies used by logging and baseline/data utilities:
+
+```bash
 uv pip install tensorboard tsplib95 vrplib pyvrp ortools
 ```
 
 `uv sync` creates `.venv`, installs the root project and the bundled RL4CO workspace member in editable mode, and uses a Python version that meets the project's `>=3.12` requirement. Run project commands with `uv run`; there is no need to activate the environment manually.
 
-If you use CUDA 11 or CUDA 12, reinstall PyTorch with a matching wheel:
-
-```bash
-uv pip install torch==2.7.1+cu118 --index-url https://download.pytorch.org/whl/cu118/ --reinstall
-uv pip install torch==2.6.0+cu124 --index-url https://mirrors.nju.edu.cn/pytorch/whl/cu124/ --reinstall
-```
+The selected index is used for PyTorch while other packages continue to use the configured package mirror. The project accepts PyTorch versions `>=2.6,<3`, so uv resolves a compatible build available from that index. To switch CUDA versions in an existing environment, rerun the corresponding command with `--upgrade-package torch`, for example: `uv sync --upgrade-package torch --index https://download.pytorch.org/whl/cu130`.
 
 ### Required patch: `CVRPTWEnv.load_data`
 
