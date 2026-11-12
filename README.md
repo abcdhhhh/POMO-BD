@@ -2,11 +2,13 @@
 
 Official implementation of the paper **"Balanced Decoding of Constructive Neural Solvers for Vehicle Routing Problems"**, accepted for publication in *IEEE Transactions on Intelligent Transportation Systems* (2026), by Pengzhi Cheng, Chaoyang Wang, Jingze Li, and Weiwei Sun.
 
+DOI: [10.1109/TITS.2026.3739787](https://doi.org/10.1109/tits.2026.3739787)
+
 Multi-start decoding (POMO) forces every sampled tour to start at the depot, which makes the solution quality highly sensitive to the starting node. **Balanced Decoding (BD)** re-defines the depot as an *intermediate* node and allows every node (including the depot) to initiate the tour, so that rotationally equivalent solutions become reachable. This enlarges the set of equivalent optimal solutions that a neural solver can sample and reduces the sensitivity to initialization. BD is a decoding-time strategy and can be combined with any autoregressive neural solver; in the paper it is used with **POMO** for multi-subtour problems (CVRP, CVRPTW) and with **ICAM** for single-subtour problems (OP, PCTSP).
 
 This repository is built on top of [RL4CO](https://github.com/ai4co/rl4co), which is vendored in `rl4co/` and installed in editable mode.
 
-> ⚠️ **Before running any CVRPTW experiment, apply the patch described in [Required patch: `CVRPTWEnv.load_data`](#required-patch-cvrptwenvload_data).**
+> ⚠️ **When using this repository's entry point (`resym.py`), the CVRPTW compatibility patch is applied automatically at runtime. If you bypass `resym.py` and import RL4CO's upstream `CVRPTWEnv` directly, follow the compatibility fix described in [Required patch: `CVRPTWEnv.load_data`](#required-patch-cvrptwenvload_data).**
 
 ## Highlights
 
@@ -81,7 +83,7 @@ uv pip install tensorboard tsplib95 vrplib pyvrp ortools
 
 ### Required patch: `CVRPTWEnv.load_data`
 
-`rl4co/rl4co/envs/routing/cvrptw/env.py` defines a static `load_data(...)` intended for Solomon-format instances. `RL4COEnvBase.dataset()` calls `self.load_data(fpath, batch_size)`, so this override swallows the `batch_size` argument and pre-generated `.npz` datasets cannot be loaded. **Delete the `load_data(...)` and `extract_from_solomon(...)` methods from `CVRPTWEnv`** before running CVRPTW experiments (both methods are already commented out in `envs/symcvrptw/env.py`, which relies on the base-class implementation).
+`rl4co/rl4co/envs/routing/cvrptw/env.py` defines a static `load_data(...)` intended for Solomon-format instances. `RL4COEnvBase.dataset()` calls `self.load_data(fpath, batch_size)`, so this override swallows the `batch_size` argument and pre-generated `.npz` datasets cannot be loaded. This repository applies the compatibility fix automatically at runtime in [`resym.py`](resym.py) by restoring the base implementation. If you bypass the project entry point and import RL4CO's upstream `CVRPTWEnv` directly, you must restore the base `load_data(...)` behavior (equivalently, remove the Solomon-specific override or keep the compatibility patch in your own startup code).
 
 ## 2. Dataset
 
@@ -242,7 +244,9 @@ If you use this code, please cite:
   title   = {Balanced Decoding of Constructive Neural Solvers for Vehicle Routing Problems},
   author  = {Cheng, Pengzhi and Wang, Chaoyang and Li, Jingze and Sun, Weiwei},
   journal = {IEEE Transactions on Intelligent Transportation Systems},
-  year    = {2026}
+  year    = {2026},
+  doi     = {10.1109/TITS.2026.3739787},
+  url     = {https://doi.org/10.1109/tits.2026.3739787}
 }
 ```
 
